@@ -125,6 +125,7 @@ namespace ProductMigrationTool
                 }                
                 else
                 {
+                    Console.ForegroundColor = ConsoleColor.DarkMagenta;
                     Console.Write($"Ops! My advanced AI capabilities couldn't understand what you want with {cmd}... please, try again.");
                 }                
             }            
