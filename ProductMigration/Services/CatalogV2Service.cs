@@ -1,5 +1,6 @@
 ﻿using PlayFab;
 using PlayFab.EconomyModels;
+using System.Text;
 
 namespace ProductMigration.Services.CatalogsV2
 {
@@ -146,6 +147,39 @@ namespace ProductMigration.Services.CatalogsV2
 
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write($"\nCreate Items Finished!\n");
+        }
+
+        public static void PrintCatalogItems(List<CatalogItem> items)
+        {
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine($"\n\n{items.Count} items:");
+
+            foreach (var item in items)
+            {
+                if (item.Type == "catalogItem")
+                {
+                    Console.ForegroundColor = ConsoleColor.White;
+                }
+                else if (item.Type == "currency")
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                }
+                else if (item.Type == "bundle")
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkMagenta;
+                }
+                else if (item.Type == "store")
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkCyan;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                }
+
+                string friendlyId = item.AlternateIds.Where(obj => obj.Type == "FriendlyId").Aggregate(new StringBuilder(), (sb, obj) => sb.Append(obj.Value), sb => sb.ToString());
+                Console.WriteLine($"\nType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId})");
+            }
         }
     }
 }

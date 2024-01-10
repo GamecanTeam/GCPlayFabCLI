@@ -2,7 +2,7 @@
 using PlayFab.EconomyModels;
 using ProductMigration.Utils.Title;
 using ProductMigration.Services.CatalogsV2;
-using System.Text;
+using ProductMigration.Services;
 
 namespace ProductMigrationTool
 {
@@ -30,138 +30,79 @@ namespace ProductMigrationTool
                     break;
                 }
 
+                if (command.Length < 2)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write($"That's an invalid command!");
+                    continue;
+                }
+
                 var commandParts = command.Split(' ');
+                bool bVerbose = commandParts.Contains(" -v");
                 var cmd = commandParts[0].ToLower();
+                string context = commandParts[1];
 
                 // TODO: for now we have only a few commands, should we spend time and create a better design with a dispatcher or something?
-                if (cmd == "ls" && commandParts.Length >= 2)
+                if (cmd == "ls" && commandParts.Length >= 3)
                 {
-                    string titleId = commandParts[1];
-                    string titleDevSecret = commandParts[2];
-
-                    var titleSettings = new PlayFabApiSettings
+                    if (context == "catalogv2")
                     {
-                        TitleId = titleId,
-                        DeveloperSecretKey = titleDevSecret
-                    };
+                        string titleId = commandParts[2];
+                        string titleDevSecret = commandParts[3];
 
-                    var authContext = new PlayFabAuthenticationContext
+                        await ListCatalogV2Items(titleId, titleDevSecret);
+                    }
+                    else
                     {
-                        EntityId = titleSettings.TitleId,
-                        EntityType = "title",
-                        EntityToken = await TitleAuthUtil.GetTitleEntityToken(titleSettings)
-                    };
-
-                    CatalogV2Service catalogService = new CatalogV2Service(titleSettings, authContext);
-                    List<CatalogItem> catalogItems = await catalogService.SearchItems();
-                    PrintCatalogItems(catalogItems);
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.Write($"I'm sorry, this context ({context}) is not implemented yet!");
+                    }
                 }
-                else if (cmd == "cp" && commandParts.Length >= 4)
+                else if (cmd == "cp" && commandParts.Length >= 5)
                 {
-                    string sourceTitleId = commandParts[1];
-                    string sourceTitleSecret = commandParts[2];
-                    string targetTitleId = commandParts[3];
-                    string targetTitleSecret = commandParts[4];
-                    bool bVerbose = commandParts.Length > 4;                    
-
-                    // source title ("from")
-                    var sourceTitleSettings = new PlayFabApiSettings
+                    if (context == "catalogv2")
                     {
-                        TitleId = sourceTitleId,
-                        DeveloperSecretKey = sourceTitleSecret
-                    };                    
+                        string sourceTitleId = commandParts[2];
+                        string sourceTitleSecret = commandParts[3];
+                        string targetTitleId = commandParts[4];
+                        string targetTitleSecret = commandParts[5];
 
-                    var source_authContext = new PlayFabAuthenticationContext
-                    {
-                        EntityId = sourceTitleSettings.TitleId,
-                        EntityType = "title",
-                        EntityToken = await TitleAuthUtil.GetTitleEntityToken(sourceTitleSettings)
-                    };
-
-                    CatalogV2Service source_catalogV2Service = new CatalogV2Service(sourceTitleSettings, source_authContext);
-                    List<CatalogItem> source_allItems = await source_catalogV2Service.SearchItems();
-                    List<CatalogItem> source_catalogItems = source_allItems.Where(x => x.Type == "catalogItem").ToList(); // TODO: how to handle bundles and currency?
-
-                    if (bVerbose)
-                    {
-                        Console.WriteLine($"\n\nNumber of catalog items available in the source title: {source_catalogItems.Count}");
-                        PrintCatalogItems(source_catalogItems);
+                        CatalogV2MigrationService catalogV2MigrationService = new CatalogV2MigrationService(sourceTitleId, sourceTitleSecret, targetTitleId, targetTitleSecret, bVerbose);
+                        await catalogV2MigrationService.Setup();
+                        await catalogV2MigrationService.CopyCatalogV2();
                     }
-
-                    // target title ("to")
-                    var targetTitleSettings = new PlayFabApiSettings
+                    else
                     {
-                        TitleId = targetTitleId,
-                        DeveloperSecretKey = targetTitleSecret
-                    };
-
-                    var target_authContext = new PlayFabAuthenticationContext
-                    {
-                        EntityId = targetTitleSettings.TitleId,
-                        EntityType = "title",
-                        EntityToken = await TitleAuthUtil.GetTitleEntityToken(targetTitleSettings)
-                    };
-
-                    // NOTE: delete all existing items that is not present on source title
-                    CatalogV2Service target_catalogV2Service = new CatalogV2Service(targetTitleSettings, target_authContext);
-                    List<CatalogItem> target_allItems = await target_catalogV2Service.SearchItems();
-                    List<CatalogItem> target_catatologItems = target_allItems.Where(x => x.Type == "catalogItem").ToList(); // TODO: how to handle bundles and currency?
-                    // delete only items that the target has and the source doesn't have
-                    List<CatalogItem> itemsToDelete = target_catatologItems.Where(targetItem => !source_catalogItems.Any(sourceItem => sourceItem.Id == targetItem.Id)).ToList();                    
-                    // NOTE: create only items that target doesn't have it yet from the source title
-                    List<CatalogItem> itemsToCreate = source_catalogItems.Where(sourceItem => !target_catatologItems.Any(targetItem => targetItem.Id == sourceItem.Id)).ToList();
-                    if (bVerbose)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"\n\nNumber of catalog items to delete from the target title: {itemsToDelete.Count}\n");
-                        PrintCatalogItems(itemsToDelete);
-
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"\n\nNumber of catalog items to create in the target title: {itemsToCreate.Count}\n");
-                        PrintCatalogItems(itemsToCreate);
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.Write($"I'm sorry, this context ({context}) is not implemented yet!");
                     }
-                    await target_catalogV2Service.DeleteItems(itemsToDelete);
-                    await target_catalogV2Service.CreateItems(itemsToCreate);
-                }                
+                }
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.DarkMagenta;
                     Console.Write($"Ops! My advanced AI capabilities couldn't understand what you want with {cmd}... please, try again.");
-                }                
-            }            
+                }
+            }
         }
 
-        public static void PrintCatalogItems(List<CatalogItem> items)
+        static async Task ListCatalogV2Items(string titleId, string titleDevSecret)
         {
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine($"\n\n{items.Count} items:");
-
-            foreach (var item in items)
+            var titleSettings = new PlayFabApiSettings
             {
-                if (item.Type == "catalogItem")
-                {
-                    Console.ForegroundColor = ConsoleColor.White;
-                }
-                else if (item.Type == "currency")
-                {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                }
-                else if (item.Type == "bundle")
-                {
-                    Console.ForegroundColor = ConsoleColor.DarkMagenta;
-                }
-                else if (item.Type == "store")
-                {
-                    Console.ForegroundColor = ConsoleColor.DarkCyan;
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                }
+                TitleId = titleId,
+                DeveloperSecretKey = titleDevSecret
+            };
 
-                string friendlyId = item.AlternateIds.Where(obj => obj.Type == "FriendlyId").Aggregate(new StringBuilder(), (sb, obj) => sb.Append(obj.Value), sb => sb.ToString());
-                Console.WriteLine($"\nType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId})");
-            }
+            var authContext = new PlayFabAuthenticationContext
+            {
+                EntityId = titleSettings.TitleId,
+                EntityType = "title",
+                EntityToken = await TitleAuthUtil.GetTitleEntityToken(titleSettings)
+            };
+
+            CatalogV2Service catalogService = new CatalogV2Service(titleSettings, authContext);
+            List<CatalogItem> catalogItems = await catalogService.SearchItems();
+            CatalogV2Service.PrintCatalogItems(catalogItems);
         }
     }
 }
