@@ -38,7 +38,7 @@ namespace ProductMigrationTool
                 }
 
                 var commandParts = command.Split(' ');
-                bool bVerbose = commandParts.Contains(" -v");
+                bool bVerbose = commandParts.Contains("-v");
                 var cmd = commandParts[0].ToLower();
                 string context = commandParts[1];
 

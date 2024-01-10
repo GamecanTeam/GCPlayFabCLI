@@ -15,6 +15,11 @@ namespace ProductMigration.Services.CatalogsV2
             _playFabEconomyApi = new PlayFabEconomyInstanceAPI(settings, authContext);
         }
 
+        public string GetTitleId()
+        {
+            return _currentSetting.TitleId;
+        }
+
         public async Task<List<CatalogItem>> SearchItems()
         {
             Console.ForegroundColor = ConsoleColor.White;
@@ -104,7 +109,7 @@ namespace ProductMigration.Services.CatalogsV2
             Console.Write($"\nDelete Items Finished!\n");
         }
 
-        public async Task CreateItems(List<CatalogItem> itemsToCreate)
+        public async Task CreateItems(List<CatalogItem> itemsToCreate, bool bAddItemRefs = false)
         {
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write($"\nCreation of {itemsToCreate.Count} new items for title {_currentSetting.TitleId} has started...");
@@ -112,24 +117,30 @@ namespace ProductMigration.Services.CatalogsV2
             while (itemsToCreate.Count > 0)
             {
                 CatalogItem currentItem = itemsToCreate[0];
-
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.Write($"\nCreating item: {currentItem.Id}");
+                string friendlyId = GetFriendlyId(currentItem);
 
                 var request = new CreateDraftItemRequest
                 {
                     Item = new CatalogItem
                     {
                         Type = currentItem.Type,
-                        Title = currentItem.Title,
                         AlternateIds = currentItem.AlternateIds,
-                        DefaultStackId = currentItem.DefaultStackId,
+                        Title = currentItem.Title,
+                        Description = currentItem.Description,
                         CreatorEntity = new EntityKey
                         {
                             Id = _currentSetting.TitleId,
                             Type = "title"
                         },
-                        DisplayProperties = currentItem.DisplayProperties                        
+                        IsHidden = currentItem.IsHidden,
+                        DefaultStackId = currentItem.DefaultStackId,
+                        Platforms = currentItem.Platforms,
+                        Tags = currentItem.Tags,
+                        StartDate = currentItem.StartDate,
+                        Contents = currentItem.Contents,
+                        ItemReferences = bAddItemRefs ? currentItem.ItemReferences : null, // caller should be responsible for setting the correct IDs
+                        //PriceOptions = currentItem.PriceOptions, // TODO: this has itemIds, so we don't copy from the args, should do something similar to the ItemReferences
+                        DisplayProperties = currentItem.DisplayProperties,
                     },
                     Publish = true
                 };
@@ -139,7 +150,12 @@ namespace ProductMigration.Services.CatalogsV2
                 if (reponse.Error != null)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Write($"\nFailed to create item {currentItem.Id}. Reason: {reponse.Error.ErrorMessage}");
+                    Console.Write($"\nFailed to create item {currentItem.Id} (StackId: {currentItem.DefaultStackId}). Reason: {reponse.Error.ErrorMessage}");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.White;                    
+                    Console.Write($"\nItem {friendlyId} (StackId: {currentItem.DefaultStackId}) created.");
                 }
 
                 itemsToCreate.RemoveAt(0);
@@ -149,36 +165,107 @@ namespace ProductMigration.Services.CatalogsV2
             Console.Write($"\nCreate Items Finished!\n");
         }
 
+        public async Task<CatalogItem> GetItem(string itemId)
+        {
+            var request = new GetItemRequest
+            {
+                Id = itemId,
+                Entity = new EntityKey
+                { 
+                    Id = _currentSetting.TitleId,
+                    Type = "title"
+                }
+            };
+
+            var response = await _playFabEconomyApi.GetItemAsync(request);
+
+            if (response.Error != null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write($"\nFailed to get item {itemId}. Reason: {response.Error.ErrorMessage}");
+                return null;
+            }
+
+            return response.Result.Item;
+        }
+
+        public async Task<CatalogItem> GetItem(CatalogAlternateId alternateId)
+        {
+            var request = new GetItemRequest
+            {
+                AlternateId = alternateId,
+                Entity = new EntityKey
+                {
+                    Id = _currentSetting.TitleId,
+                    Type = "title"
+                }
+            };
+
+            var response = await _playFabEconomyApi.GetItemAsync(request);
+
+            if (response.Error != null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write($"\nFailed to get item {alternateId.Value} (id type: {alternateId.Type}). Reason: {response.Error.ErrorMessage}");
+                return null;
+            }
+
+            return response.Result.Item;
+        }
+
+        public static string GetFriendlyId(CatalogItem item)
+        {
+            // we know for now we use just one single friendly id, so we're going to aggregate this list
+            return item.AlternateIds.Where(obj => obj.Type == "FriendlyId").Aggregate(new StringBuilder(), (sb, obj) => sb.Append(obj.Value), sb => sb.ToString());
+        }
+
         public static void PrintCatalogItems(List<CatalogItem> items)
         {
+            if (items == null || items.Count == 0)
+            {
+                return;
+            }
+
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"\n\n{items.Count} items:");
 
             foreach (var item in items)
-            {
+            {                
+                string friendlyId = GetFriendlyId(item);
+
                 if (item.Type == "catalogItem")
                 {
                     Console.ForegroundColor = ConsoleColor.White;
+                    Console.WriteLine($"\nType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId})");
                 }
                 else if (item.Type == "currency")
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"\nType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId})");
                 }
                 else if (item.Type == "bundle")
                 {
-                    Console.ForegroundColor = ConsoleColor.DarkMagenta;
+                    Console.ForegroundColor = ConsoleColor.DarkMagenta;                    
+                    Console.WriteLine($"\nType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId}) with {item.ItemReferences.Count} items:");
+                    foreach (var refItem in item.ItemReferences)
+                    {
+                        Console.WriteLine($"\n\tAmount: {refItem.Amount}, Id: {refItem.Id}");
+                    }
                 }
                 else if (item.Type == "store")
                 {
                     Console.ForegroundColor = ConsoleColor.DarkCyan;
+                    Console.WriteLine($"\n\tType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId}) with {item.ItemReferences.Count} items:");
+                    foreach (var refItem in item.ItemReferences)
+                    {
+                        Console.WriteLine($"\nAmount: {refItem.Amount}, Id: {refItem.Id}");
+                    }
                 }
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                }
-
-                string friendlyId = item.AlternateIds.Where(obj => obj.Type == "FriendlyId").Aggregate(new StringBuilder(), (sb, obj) => sb.Append(obj.Value), sb => sb.ToString());
-                Console.WriteLine($"\nType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId})");
+                    Console.WriteLine($"\nType: {item.Type} not properly handled yet... - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId})");
+                }                
             }
         }
     }
