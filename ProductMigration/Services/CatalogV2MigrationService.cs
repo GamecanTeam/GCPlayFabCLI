@@ -232,6 +232,7 @@ namespace ProductMigration.Services
             }
 
             // TODO: implement this (if it is same as bundles we just add the "store" filter to the bundle methods and rename it to CopyBundlesAndStore xD)
+            Console.WriteLine($"\n\nCopying Stores finished!");
         }
     }
 }

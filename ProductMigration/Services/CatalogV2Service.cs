@@ -150,7 +150,7 @@ namespace ProductMigration.Services.CatalogsV2
                 if (reponse.Error != null)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Write($"\nFailed to create item {currentItem.Id} (StackId: {currentItem.DefaultStackId}). Reason: {reponse.Error.ErrorMessage}");
+                    Console.Write($"\nFailed to create item {friendlyId} (StackId: {currentItem.DefaultStackId}). Reason: {reponse.Error.ErrorMessage}");
                 }
                 else
                 {
