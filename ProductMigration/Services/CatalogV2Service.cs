@@ -79,9 +79,7 @@ namespace ProductMigration.Services.CatalogsV2
             while (itemsToDelete.Count > 0) 
             {
                 CatalogItem currentItem = itemsToDelete[0];
-
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.Write($"\nDeleting item: {currentItem.Id}");                
+                string friendlyId = GetFriendlyId(currentItem);
 
                 var request = new DeleteItemRequest
                 {
@@ -98,7 +96,12 @@ namespace ProductMigration.Services.CatalogsV2
                 if (reponse.Error != null)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Write($"\nFailed to delete item {currentItem.Id}. Reason: {reponse.Error.ErrorMessage}");
+                    Console.Write($"\nFailed to delete item {friendlyId} (StackId: {currentItem.DefaultStackId}, Id: {currentItem.Id}). Reason: {reponse.Error.ErrorMessage}");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.Write($"\nItem deleted: {friendlyId} (StackId: {currentItem.DefaultStackId}, Id: {currentItem.Id}).");
                 }
 
                 // Remove the deleted item from the list
@@ -109,7 +112,7 @@ namespace ProductMigration.Services.CatalogsV2
             Console.Write($"\nDelete Items Finished!\n");
         }
 
-        public async Task CreateItems(List<CatalogItem> itemsToCreate, bool bAddItemRefs = false)
+        public async Task CreateItems(List<CatalogItem> itemsToCreate, bool bAddItemRefs = false, bool bAddPriceOptions = false)
         {
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write($"\nCreation of {itemsToCreate.Count} new items for title {_currentSetting.TitleId} has started...");
@@ -139,7 +142,7 @@ namespace ProductMigration.Services.CatalogsV2
                         StartDate = currentItem.StartDate,
                         Contents = currentItem.Contents,
                         ItemReferences = bAddItemRefs ? currentItem.ItemReferences : null, // caller should be responsible for setting the correct IDs
-                        //PriceOptions = currentItem.PriceOptions, // TODO: this has itemIds, so we don't copy from the args, should do something similar to the ItemReferences
+                        PriceOptions = bAddPriceOptions ? currentItem.PriceOptions : null, // caller should be responsible for setting the correct price options with respective item IDs
                         DisplayProperties = currentItem.DisplayProperties,
                     },
                     Publish = true
@@ -186,6 +189,9 @@ namespace ProductMigration.Services.CatalogsV2
                 return null;
             }
 
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Write($"\nItem {itemId} fetched successfully. StackId: {response.Result.Item.DefaultStackId}");
+
             return response.Result.Item;
         }
 
@@ -209,6 +215,9 @@ namespace ProductMigration.Services.CatalogsV2
                 Console.Write($"\nFailed to get item {alternateId.Value} (id type: {alternateId.Type}). Reason: {response.Error.ErrorMessage}");
                 return null;
             }
+
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Write($"\nItem {alternateId.Type} fetched successfully. Id: {response.Result.Item.Id} (StackId: {response.Result.Item.DefaultStackId})");
 
             return response.Result.Item;
         }
@@ -245,20 +254,38 @@ namespace ProductMigration.Services.CatalogsV2
                 }
                 else if (item.Type == "bundle")
                 {
-                    Console.ForegroundColor = ConsoleColor.DarkMagenta;                    
-                    Console.WriteLine($"\nType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId}) with {item.ItemReferences.Count} items:");
-                    foreach (var refItem in item.ItemReferences)
+                    Console.ForegroundColor = ConsoleColor.DarkMagenta;
+                    int numItemRefs = item.ItemReferences != null ? item.ItemReferences.Count : 0;
+                    Console.WriteLine($"\nType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId}) with {numItemRefs} items:");
+                    if (item.ItemReferences != null)
                     {
-                        Console.WriteLine($"\n\tAmount: {refItem.Amount}, Id: {refItem.Id}");
+                        foreach (var refItem in item.ItemReferences)
+                        {
+                            Console.WriteLine($"\n\tAmount: {refItem.Amount}, Id: {refItem.Id}");
+                        }
                     }
                 }
                 else if (item.Type == "store")
                 {
                     Console.ForegroundColor = ConsoleColor.DarkCyan;
-                    Console.WriteLine($"\n\tType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId}) with {item.ItemReferences.Count} items:");
-                    foreach (var refItem in item.ItemReferences)
+                    int numItemRefs = item.ItemReferences != null ? item.ItemReferences.Count : 0;
+                    Console.WriteLine($"\nType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId}) with {numItemRefs} items:");
+                    if (item.ItemReferences != null)
                     {
-                        Console.WriteLine($"\nAmount: {refItem.Amount}, Id: {refItem.Id}");
+                        foreach (var refItem in item.ItemReferences)
+                        {
+                            Console.WriteLine($"\n\tAmount: {refItem.Amount}, Id: {refItem.Id}");
+                            if (refItem.PriceOptions != null)
+                            {
+                                foreach (var price in refItem.PriceOptions.Prices)
+                                {
+                                    foreach (var amount in price.Amounts)
+                                    {
+                                        Console.WriteLine($"\n\t\tAmount: {amount.Amount}, Id: {amount.ItemId}");
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 else

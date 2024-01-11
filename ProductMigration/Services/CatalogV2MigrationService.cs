@@ -18,6 +18,7 @@ namespace ProductMigration.Services
         string _targetTitleSecret;
 
         List<CatalogItem> _allCatalogItemsFromSource;
+        List<CatalogItem> _allCatalogItemsFromTarget;
         List<CatalogItem> _allOldCatalogItemsFromTarget;
 
         public CatalogV2MigrationService(string sourceTitleId, string sourceTitleSecret, string targetTitleId, string targetTitleSecret, bool bVerbose)
@@ -26,7 +27,11 @@ namespace ProductMigration.Services
             _sourceTitleId = sourceTitleId;
             _sourceTitleSecret = sourceTitleSecret;
             _targetTitleId = targetTitleId;
-            _targetTitleSecret = targetTitleSecret;            
+            _targetTitleSecret = targetTitleSecret;
+
+            _allCatalogItemsFromSource = new List<CatalogItem>();
+            _allCatalogItemsFromTarget = new List<CatalogItem>();
+            _allOldCatalogItemsFromTarget = new List<CatalogItem>();
         }
 
         public async Task Setup()
@@ -100,12 +105,14 @@ namespace ProductMigration.Services
             }
 
             if (itemsToCreate.Count > 0)
-            {                
+            {
                 await _target_catalogV2Service.CreateItems(itemsToCreate);
             }
 
+            _allCatalogItemsFromTarget = await _target_catalogV2Service.SearchItems(); // cache all items here so we avoid fetching them again for bundles and stores
+
             await CopyBundles();
-            //await CopyStores(); // TODO: implement this
+            await CopyStores();
 
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"\n\nCopying CatalogV2 finished!");
@@ -161,39 +168,45 @@ namespace ProductMigration.Services
                     continue;
                 }
 
-                if (_bVerbose)
-                {
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.WriteLine($"\nFetching items references for {item.Type} {currentBundleItemFriendlyId} ({item.Id}) from source title {_source_catalogV2Service.GetTitleId()}");
-                }
-
                 List<CatalogItemReference> targetItemReferences = new List<CatalogItemReference>();
 
                 // fetching the friendly id for each of the "item reference" so we can fetch the Id for the "target item references"
                 foreach (var itemRef in item.ItemReferences)
                 {
-                    CatalogItem srcCatItem = await _source_catalogV2Service.GetItem(itemRef.Id);
-                    if (srcCatItem != null)
+                    // NOTE: old but gold, we're using the cached values to avoid another request which speeds up the migration considerable
+                    //CatalogItem srcCatItem = await _source_catalogV2Service.GetItem(itemRef.Id);
+                    CatalogItem? srcCatItem = _allCatalogItemsFromSource.Find(catItem => catItem.Id == itemRef.Id);
+                    
+                    if (srcCatItem == null)
                     {
-                        string srcFriendlyId = CatalogV2Service.GetFriendlyId(srcCatItem);
-
-                        if (_bVerbose)
-                        {
-                            Console.ForegroundColor = ConsoleColor.DarkGray;
-                            Console.WriteLine($"\nFetching correct item Id of item {srcFriendlyId} for the bundle {currentBundleItemFriendlyId} in target title {_target_catalogV2Service.GetTitleId()}");
-                        }
-
-                        CatalogItem targetCatItem = await _target_catalogV2Service.GetItem(new CatalogAlternateId
-                        {
-                            Type = "FriendlyId",
-                            Value = srcFriendlyId
-                        });
-
-                        if (targetCatItem != null)
-                        {
-                            targetItemReferences.Add(new CatalogItemReference { Amount = itemRef.Amount, Id = targetCatItem.Id });
-                        }
+                        Console.ForegroundColor = ConsoleColor.DarkRed;
+                        Console.WriteLine($"\nFailed to find item for item ref: {itemRef.Id} from source title {_source_catalogV2Service.GetTitleId()}");
+                        continue; // skip this one
                     }
+
+                    string srcFriendlyId = CatalogV2Service.GetFriendlyId(srcCatItem);
+
+                    if (_bVerbose)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine($"\nFetching correct item Id of item {srcFriendlyId} for the bundle {currentBundleItemFriendlyId} in target title {_target_catalogV2Service.GetTitleId()}");
+                    }
+
+                    // NOTE: old but gold, we're using the cached values to avoid another request which speeds up the migration considerable
+                    //CatalogItem targetCatItem = await _target_catalogV2Service.GetItem(new CatalogAlternateId
+                    //{
+                    //    Type = "FriendlyId",
+                    //    Value = srcFriendlyId
+                    //});
+                    CatalogItem? targetCatItem = _allCatalogItemsFromTarget.Find(catItem => catItem.DefaultStackId == srcFriendlyId);
+                    if (targetCatItem == null)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkRed;
+                        Console.WriteLine($"\nFailed to find item {srcFriendlyId} from target title {_target_catalogV2Service.GetTitleId()}");
+                        continue; // skip this one
+                    }
+
+                    targetItemReferences.Add(new CatalogItemReference { Amount = itemRef.Amount, Id = targetCatItem.Id });
                 }
 
                 // set the new references
@@ -214,6 +227,7 @@ namespace ProductMigration.Services
             Console.WriteLine($"\n\nCopying Bundles finished!");
         }
 
+        // NOTE: this could have been put together with bundles since it has similar operations, but now we're not making any extra requests anymore so we separated it just to simplify things
         public async Task CopyStores()
         {
             Console.ForegroundColor = ConsoleColor.White;
@@ -231,7 +245,119 @@ namespace ProductMigration.Services
                 return;
             }
 
-            // TODO: implement this (if it is same as bundles we just add the "store" filter to the bundle methods and rename it to CopyBundlesAndStore xD)
+            // delete stores catalog items since we're about to create new ones
+            List<CatalogItem> target_OldStoresCatalogItems = _allOldCatalogItemsFromTarget.Where(x => x.Type == "store").ToList();
+            if (target_OldStoresCatalogItems.Count > 0)
+            {
+                if (_bVerbose)
+                {
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.WriteLine($"\nDeleting {target_OldStoresCatalogItems.Count} old stores from target title {_target_catalogV2Service.GetTitleId()}");
+                    CatalogV2Service.PrintCatalogItems(target_OldStoresCatalogItems);
+                }
+
+                await _target_catalogV2Service.DeleteItems(target_OldStoresCatalogItems);
+            }
+
+            List<CatalogItem> target_storesCatalogItems = new List<CatalogItem>();
+            foreach (var item in source_storesCatalogItems)
+            {
+                string currentBundleItemFriendlyId = CatalogV2Service.GetFriendlyId(item);
+
+                if (item.ItemReferences == null)
+                {
+                    if (_bVerbose)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkRed;
+                        Console.WriteLine($"\n{item.Type} {currentBundleItemFriendlyId} ({item.Id}) doesn't have item references and will be skipped.");
+                    }
+                    continue;
+                }
+
+                if (_bVerbose)
+                {
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.WriteLine($"\nFetching items references for {item.Type} {currentBundleItemFriendlyId} ({item.Id}) from source title {_source_catalogV2Service.GetTitleId()}");
+                }
+
+                List<CatalogItemReference> targetItemReferences = new List<CatalogItemReference>();
+
+                // fetching the friendly id for each of the "item reference" so we can fetch the Id for the "target item references"
+                foreach (var itemRef in item.ItemReferences)
+                {
+                    CatalogItem? srcCatItem = _allCatalogItemsFromSource.Find(catItem => catItem.Id == itemRef.Id);
+
+                    if (srcCatItem == null)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkRed;
+                        Console.WriteLine($"\nFailed to find item for item ref: {itemRef.Id} from source title {_source_catalogV2Service.GetTitleId()}");
+                        continue; // skip this one
+                    }
+
+                    string srcFriendlyId = CatalogV2Service.GetFriendlyId(srcCatItem);
+
+                    CatalogItem? targetCatItem = _allCatalogItemsFromTarget.Find(catItem => catItem.DefaultStackId == srcFriendlyId);
+                    if (targetCatItem == null)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkRed;
+                        Console.WriteLine($"\nFailed to find item {srcFriendlyId} from target title {_target_catalogV2Service.GetTitleId()}");
+                        continue; // skip this one
+                    }
+
+                    // NOTE: create the correct catalog price options with the target items id but using the other values from the source
+                    List<CatalogPrice> prices = new List<CatalogPrice>();
+                    foreach (var price in itemRef.PriceOptions.Prices)
+                    {
+                        List <CatalogPriceAmount> catalogPriceAmounts = new List<CatalogPriceAmount>();
+                        foreach (var amount in price.Amounts)
+                        {
+                            CatalogItem? tempSrcCatItem = _allCatalogItemsFromSource.Find(tempItem => tempItem.Id == amount.ItemId);
+                            if (tempSrcCatItem != null)
+                            {
+                                string friendlyId = CatalogV2Service.GetFriendlyId(tempSrcCatItem);
+                                CatalogItem? tempTargetCatItem = _allCatalogItemsFromTarget.Find(tempItem => tempItem.DefaultStackId == tempSrcCatItem.DefaultStackId);
+                                if (tempTargetCatItem != null)
+                                {
+                                    catalogPriceAmounts.Add(new CatalogPriceAmount { Amount = amount.Amount, ItemId = tempTargetCatItem.Id});
+                                }
+                            }
+                        }
+
+                        if (catalogPriceAmounts.Count > 0) 
+                        {
+                            prices.Add(new CatalogPrice { Amounts = catalogPriceAmounts, UnitAmount = price.UnitAmount, UnitDurationInSeconds = price.UnitDurationInSeconds });
+                        }                        
+                    }
+
+                    if (prices.Count > 0)
+                    {
+                        CatalogPriceOptions priceOptions = new CatalogPriceOptions { Prices = prices };
+                        var catalogItemReference = new CatalogItemReference
+                        {
+                            Amount = itemRef.Amount,
+                            Id = targetCatItem.Id,
+                            PriceOptions = priceOptions
+                        };
+
+                        targetItemReferences.Add(catalogItemReference);
+                    }
+                }                
+
+                // set the new references
+                item.ItemReferences = targetItemReferences.Count > 0 ? targetItemReferences : null;
+                target_storesCatalogItems.Add(item);
+            }
+
+            if (_bVerbose)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"\n{target_storesCatalogItems.Count} store items to be created in the target title {_target_catalogV2Service.GetTitleId()}");
+                CatalogV2Service.PrintCatalogItems(target_storesCatalogItems);
+            }
+
+            await _target_catalogV2Service.CreateItems(target_storesCatalogItems, true);
+
+            Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"\n\nCopying Stores finished!");
         }
     }
