@@ -123,6 +123,20 @@ namespace ProductMigration.Services
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"\n\nCopying bundles...");
 
+            // delete bundles catalog items since we're about to create new ones
+            List<CatalogItem> target_OldBundlesCatalogItems = _allOldCatalogItemsFromTarget.Where(x => x.Type == "bundle").ToList();
+            if (target_OldBundlesCatalogItems.Count > 0)
+            {
+                if (_bVerbose)
+                {
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.WriteLine($"\nDeleting {target_OldBundlesCatalogItems.Count} old bundles from target title {_target_catalogV2Service.GetTitleId()}");
+                    CatalogV2Service.PrintCatalogItems(target_OldBundlesCatalogItems);
+                }
+
+                await _target_catalogV2Service.DeleteItems(target_OldBundlesCatalogItems);
+            }
+
             List<CatalogItem> source_bundlesCatalogItems = _allCatalogItemsFromSource.Where(x => x.Type == "bundle").ToList();
 
             if (source_bundlesCatalogItems.Count == 0)
@@ -133,21 +147,7 @@ namespace ProductMigration.Services
                     Console.WriteLine($"\nAll good. No bundles available to be copied from the source title {_source_catalogV2Service.GetTitleId()}");
                 }
                 return;
-            }
-
-            // delete bundles catalog items since we're about to create new ones
-            List<CatalogItem> target_OldBundlesCatalogItems = _allOldCatalogItemsFromTarget.Where(x => x.Type == "bundle").ToList();
-            if (target_OldBundlesCatalogItems.Count > 0)
-            { 
-                if (_bVerbose) 
-                {
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.WriteLine($"\nDeleting {target_OldBundlesCatalogItems.Count} old bundles from target title {_target_catalogV2Service.GetTitleId()}");
-                    CatalogV2Service.PrintCatalogItems(target_OldBundlesCatalogItems);
-                }
-
-                await _target_catalogV2Service.DeleteItems(target_OldBundlesCatalogItems);
-            }
+            }            
 
             // item references workaround
             // 1 - fetch the friendly id for each referenced item in the item bundle/store from the source title
@@ -233,18 +233,6 @@ namespace ProductMigration.Services
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"\n\nCopying Stores...");
 
-            List<CatalogItem> source_storesCatalogItems = _allCatalogItemsFromSource.Where(x => x.Type == "store").ToList();
-
-            if (source_storesCatalogItems.Count == 0)
-            {
-                if (_bVerbose)
-                {
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.WriteLine($"\nAll good. No stores available to be copied from the source title {_source_catalogV2Service.GetTitleId()}");
-                }
-                return;
-            }
-
             // delete stores catalog items since we're about to create new ones
             List<CatalogItem> target_OldStoresCatalogItems = _allOldCatalogItemsFromTarget.Where(x => x.Type == "store").ToList();
             if (target_OldStoresCatalogItems.Count > 0)
@@ -258,6 +246,18 @@ namespace ProductMigration.Services
 
                 await _target_catalogV2Service.DeleteItems(target_OldStoresCatalogItems);
             }
+
+            List<CatalogItem> source_storesCatalogItems = _allCatalogItemsFromSource.Where(x => x.Type == "store").ToList();
+
+            if (source_storesCatalogItems.Count == 0)
+            {
+                if (_bVerbose)
+                {
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.WriteLine($"\nAll good. No stores available to be copied from the source title {_source_catalogV2Service.GetTitleId()}");
+                }
+                return;
+            }            
 
             List<CatalogItem> target_storesCatalogItems = new List<CatalogItem>();
             foreach (var item in source_storesCatalogItems)
