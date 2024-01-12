@@ -2,8 +2,6 @@
 using PlayFab.EconomyModels;
 using ProductMigration.Services.CatalogsV2;
 using ProductMigration.Utils.Title;
-using System.Collections.Generic;
-using System.Text;
 
 namespace ProductMigration.Services
 {

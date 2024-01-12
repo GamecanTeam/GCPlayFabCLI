@@ -52,6 +52,10 @@ namespace ProductMigrationTool
 
                         await ListCatalogV2Items(titleId, titleDevSecret);
                     }
+                    else if (context == "functions")
+                    {
+                        // TODO:
+                    }
                     else
                     {
                         Console.ForegroundColor = ConsoleColor.Gray;
@@ -70,6 +74,10 @@ namespace ProductMigrationTool
                         CatalogV2MigrationService catalogV2MigrationService = new CatalogV2MigrationService(sourceTitleId, sourceTitleSecret, targetTitleId, targetTitleSecret, bVerbose);
                         await catalogV2MigrationService.Setup();
                         await catalogV2MigrationService.CopyCatalogV2();
+                    }
+                    else if (context == "functions")
+                    {
+                        // TODO:
                     }
                     else
                     {
