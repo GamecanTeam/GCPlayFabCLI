@@ -32,8 +32,14 @@ namespace ProductMigration.Services
             _allOldCatalogItemsFromTarget = new List<CatalogItem>();
         }
 
-        public async Task Setup()
+        public async Task Login()
         {
+            if (_bVerbose)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine($"\nSetting up titles credentials...");
+            }
+
             var sourceTitleSettings = new PlayFabApiSettings
             {
                 TitleId = _sourceTitleId,
@@ -63,6 +69,12 @@ namespace ProductMigration.Services
             };
 
             _target_catalogV2Service = new CatalogV2Service(targetTitleSettings, targetAuthContext);
+
+            if (_bVerbose)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine($"\nService Ready!");
+            }
         }
 
         public async Task CopyCatalogV2()

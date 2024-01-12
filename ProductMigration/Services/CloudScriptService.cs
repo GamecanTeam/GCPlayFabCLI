@@ -1,7 +1,5 @@
 ﻿using PlayFab;
 using PlayFab.CloudScriptModels;
-using System;
-using System.Collections.Generic;
 
 namespace ProductMigration.Services
 {
@@ -12,6 +10,21 @@ namespace ProductMigration.Services
         public string FunctionUrl;
         public string QueueName;
         public string TriggerType;
+
+        public bool IsValid()
+        {
+            return !string.IsNullOrEmpty(TriggerType) && !string.IsNullOrEmpty(FunctionName);
+        }
+        public bool IsHttp() 
+        {
+            return IsValid() && TriggerType == "HTTP";
+        }
+        public bool IsQueued()
+        {
+            return IsValid() && TriggerType == "Queue";
+        }
+
+        
     }
 
     class CloudScriptService
@@ -188,9 +201,56 @@ namespace ProductMigration.Services
             return httpFunctions;
         }
 
-        public async Task DeleteHttpFunctions(List<HttpFunctionModel> functions)
-        { 
-            // TODO:
+        public async Task DeleteFunctions(List<FunctionModel> functions)
+        {
+            foreach (var function in functions)
+            {
+                bool bResult = await UnregisterFunction(function.FunctionName);
+
+                if (bResult)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine($"\nFunction {function.FunctionName} deleted successfully.");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkRed;
+                    Console.WriteLine($"\nFailed to delete function {function.FunctionName} ({function.TriggerType}) for title {GetTitleId()}. Check the logs for more info.");
+                }
+            }
+        }
+
+        public async Task CreateFunctions(List<GCCloudScriptFunction> functions)
+        {
+            foreach (var function in functions)
+            {
+                bool bResult = false;
+                if (function.IsHttp())
+                {
+                    bResult = await RegisterHttpFunction(function.FunctionName, function.FunctionUrl);
+                }
+                else if (function.IsQueued())
+                {
+                    bResult = await RegisterQueuedFunction(function.FunctionName, function.QueueName, function.ConnectionString);
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"\nFailed to create function {function.FunctionName} ({function.TriggerType}). Type not recognized as a valid type.");
+                }
+
+                // log result
+                if (bResult)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGreen;
+                    Console.WriteLine($"\nFunction {function.FunctionName} created successfully.");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkRed;
+                    Console.WriteLine($"\nFailed to create function {function.FunctionName} ({function.TriggerType}). Check the logs for more info.");
+                }
+            }
         }
 
         public static void PrintFunctions(List<FunctionModel> functions, string titleId)
@@ -228,14 +288,19 @@ namespace ProductMigration.Services
                 Console.WriteLine($"\nFunction {func.FunctionName} - Type: {func.TriggerType}");
 
                 Console.ForegroundColor = ConsoleColor.DarkGray;
-                if (func.TriggerType == "HTTP")
-                { 
+                if (func.IsHttp())
+                {
                     Console.WriteLine($"\n\tFunctionUrl: {func.FunctionUrl}");
                 }
-                else 
-                { 
+                else if (func.IsQueued())
+                {
                     Console.WriteLine($"\n\tConnectionString: {func.ConnectionString}");
                     Console.WriteLine($"\n\tQueueName: {func.QueueName}");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"\nFunction {func.FunctionName} with type {func.TriggerType} not recognized as a valid type.");
                 }
             }
         }

@@ -24,12 +24,12 @@ namespace ProductMigration.Services
             _targetTitleSecret = targetTitleSecret;
         }
 
-        public async Task Init()
+        public async Task Login()
         {
             if (_bVerbose)
             {
                 Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.WriteLine($"\nInitializing Cloud Script Migration Service...");
+                Console.WriteLine($"\nSetting up titles credentials...");
             }
 
             var sourceTitleSettings = new PlayFabApiSettings
@@ -65,13 +65,13 @@ namespace ProductMigration.Services
             if (_bVerbose)
             {
                 Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.WriteLine($"\nInitializiation finished!");
+                Console.WriteLine($"\nService Ready!");
             }
         }
 
         public async Task CopyFunctions()
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"\n\nCopying Functions");
 
             if (_source_cloudScriptService == null || _target_cloudScriptService == null)
@@ -98,23 +98,24 @@ namespace ProductMigration.Services
                 CloudScriptService.PrintFunctions(sourceFunctionsToBeCopied, _source_cloudScriptService.GetTitleId());
             }
 
-            List<FunctionModel> targetAllFunctions = await _target_cloudScriptService.ListFunctions();
-            if (targetAllFunctions != null && targetAllFunctions.Count > 0)
+            // delete old functions in target
+            List<FunctionModel> target_allOldFunctions = await _target_cloudScriptService.ListFunctions();
+            if (target_allOldFunctions != null && target_allOldFunctions.Count > 0)
             {
                 Console.ForegroundColor = ConsoleColor.DarkRed;
-                Console.WriteLine($"\n{targetAllFunctions.Count} functions to delete in title {_target_cloudScriptService.GetTitleId()}:");
+                Console.WriteLine($"\n{target_allOldFunctions.Count} functions to delete in title {_target_cloudScriptService.GetTitleId()}:");
                 if (_bVerbose)
                 {
-                    CloudScriptService.PrintFunctions(targetAllFunctions, _target_cloudScriptService.GetTitleId());
+                    CloudScriptService.PrintFunctions(target_allOldFunctions, _target_cloudScriptService.GetTitleId());
                 }
-            }            
 
-            // TODO:
-            // delete old functions in target
-            // copy functions from source to target
+                await _target_cloudScriptService.DeleteFunctions(target_allOldFunctions);
+            }
 
+            // create the new functions on target title from source data
+            await _target_cloudScriptService.CreateFunctions(sourceFunctionsToBeCopied);
 
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"\n\nCopying Functions has finished.");
         }        
     }

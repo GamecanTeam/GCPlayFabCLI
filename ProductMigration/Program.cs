@@ -45,16 +45,16 @@ namespace ProductMigrationTool
                 // TODO: for now we have only a few commands, should we spend time and create a better design with a dispatcher or something?
                 if (cmd == "ls" && commandParts.Length >= 3)
                 {
+                    string titleId = commandParts[2];
+                    string titleDevSecret = commandParts[3];
+
                     if (context == "catalogv2")
                     {
-                        string titleId = commandParts[2];
-                        string titleDevSecret = commandParts[3];
-
                         await ListCatalogV2Items(titleId, titleDevSecret);
                     }
                     else if (context == "functions")
                     {
-                        // TODO:
+                        await ListCloudScriptFunctions(titleId, titleDevSecret);
                     }
                     else
                     {
@@ -64,20 +64,22 @@ namespace ProductMigrationTool
                 }
                 else if (cmd == "cp" && commandParts.Length >= 5)
                 {
+                    string sourceTitleId = commandParts[2];
+                    string sourceTitleSecret = commandParts[3];
+                    string targetTitleId = commandParts[4];
+                    string targetTitleSecret = commandParts[5];
+
                     if (context == "catalogv2")
                     {
-                        string sourceTitleId = commandParts[2];
-                        string sourceTitleSecret = commandParts[3];
-                        string targetTitleId = commandParts[4];
-                        string targetTitleSecret = commandParts[5];
-
                         CatalogV2MigrationService catalogV2MigrationService = new CatalogV2MigrationService(sourceTitleId, sourceTitleSecret, targetTitleId, targetTitleSecret, bVerbose);
-                        await catalogV2MigrationService.Setup();
+                        await catalogV2MigrationService.Login();
                         await catalogV2MigrationService.CopyCatalogV2();
                     }
                     else if (context == "functions")
                     {
-                        // TODO:
+                        CloudScriptMigrationService cloudScriptMigrationService = new CloudScriptMigrationService(sourceTitleId, sourceTitleSecret, targetTitleId, targetTitleSecret, bVerbose);
+                        await cloudScriptMigrationService.Login();
+                        await cloudScriptMigrationService.CopyFunctions();
                     }
                     else
                     {
@@ -111,6 +113,26 @@ namespace ProductMigrationTool
             CatalogV2Service catalogService = new CatalogV2Service(titleSettings, authContext);
             List<CatalogItem> catalogItems = await catalogService.SearchItems();
             CatalogV2Service.PrintCatalogItems(catalogItems);
+        }
+
+        static async Task ListCloudScriptFunctions(string titleId, string titleDevSecret)
+        {
+            var titleSettings = new PlayFabApiSettings
+            {
+                TitleId = titleId,
+                DeveloperSecretKey = titleDevSecret
+            };
+
+            var authContext = new PlayFabAuthenticationContext
+            {
+                EntityId = titleSettings.TitleId,
+                EntityType = "title",
+                EntityToken = await TitleAuthUtil.GetTitleEntityToken(titleSettings)
+            };
+
+            CloudScriptService cloudScriptService = new CloudScriptService(titleSettings, authContext);
+            var functions = await cloudScriptService.ListFunctions();
+            CloudScriptService.PrintFunctions(functions, titleId);
         }
     }
 }
