@@ -1,8 +1,8 @@
 ﻿using PlayFab;
-using PlayFab.EconomyModels;
 using ProductMigration.Utils.Title;
 using ProductMigration.Services.CatalogsV2;
 using ProductMigration.Services;
+using PlayFab.ServerModels;
 
 namespace ProductMigrationTool
 {
@@ -22,22 +22,30 @@ namespace ProductMigrationTool
 
             while (true)
             {
+                Console.ForegroundColor = ConsoleColor.White;
                 Console.Write("\nEnter command ('exit' to quit): ");
                 var command = Console.ReadLine();
 
-                if (command.ToLower() == "exit")
+                if (command.ToLower() == "exit" || command.ToLower() == "quit")
                 {
                     break;
                 }
 
-                if (command.Length < 2)
+                if (command.ToLower() == "help")
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Write($"That's an invalid command!");
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.Write($"\n\nhahahahahaha"); // TODO: list of commands and its usage
                     continue;
                 }
 
                 var commandParts = command.Split(' ');
+                if (commandParts.Length < 2)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkMagenta;
+                    Console.Write($"What do you mean by {command}? Try again!");
+                    continue;
+                }
+
                 bool bVerbose = commandParts.Contains("-v");
                 var cmd = commandParts[0].ToLower();
                 string context = commandParts[1];
@@ -55,6 +63,20 @@ namespace ProductMigrationTool
                     else if (context == "functions")
                     {
                         await ListCloudScriptFunctions(titleId, titleDevSecret);
+                    }
+                    else if (context == "rules")
+                    {
+                        // TODO:
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.Write($"\nI'm sorry, this context ({context}) is not implemented yet but it is in our TODO list...");
+                    }
+                    else if (context == "titledata")
+                    {
+                        await ListServerTitleData(titleId, titleDevSecret, false);
+                    }
+                    else if (context == "titleinternaldata")
+                    {
+                        await ListServerTitleData(titleId, titleDevSecret, true);
                     }
                     else
                     {
@@ -81,16 +103,32 @@ namespace ProductMigrationTool
                         await cloudScriptMigrationService.Login();
                         await cloudScriptMigrationService.CopyFunctions();
                     }
+                    else if (context == "rules")
+                    {
+                        // TODO:
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.Write($"\nI'm sorry, this context ({context}) is not implemented yet but it is in our TODO list...");
+                    }
+                    else if (context == "titledata")
+                    {
+                        ServerTitleDataMigrationService serverTitleDataMigrationService = new ServerTitleDataMigrationService(sourceTitleId, sourceTitleSecret, targetTitleId, targetTitleSecret, bVerbose);
+                        await serverTitleDataMigrationService.CopyData();
+                    }
+                    else if (context == "titleinternaldata")
+                    {
+                        ServerTitleDataMigrationService serverTitleDataMigrationService = new ServerTitleDataMigrationService(sourceTitleId, sourceTitleSecret, targetTitleId, targetTitleSecret, bVerbose);
+                        await serverTitleDataMigrationService.CopyData(true);
+                    }
                     else
                     {
                         Console.ForegroundColor = ConsoleColor.Gray;
-                        Console.Write($"I'm sorry, this context ({context}) is not implemented yet!");
+                        Console.Write($"\n\nI'm sorry, this context ({context}) is not implemented yet!");
                     }
                 }
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.DarkMagenta;
-                    Console.Write($"Ops! My advanced AI capabilities couldn't understand what you want with {cmd}... please, try again.");
+                    Console.Write($"\n\nOps! My advanced AI capabilities couldn't understand what you want with {cmd}... are you sure you can type? you can always ask for 'help'");
                 }
             }
         }
@@ -111,7 +149,7 @@ namespace ProductMigrationTool
             };
 
             CatalogV2Service catalogService = new CatalogV2Service(titleSettings, authContext);
-            List<CatalogItem> catalogItems = await catalogService.SearchItems();
+            List<PlayFab.EconomyModels.CatalogItem> catalogItems = await catalogService.SearchItems();
             CatalogV2Service.PrintCatalogItems(catalogItems);
         }
 
@@ -133,6 +171,31 @@ namespace ProductMigrationTool
             CloudScriptService cloudScriptService = new CloudScriptService(titleSettings, authContext);
             var functions = await cloudScriptService.ListFunctions();
             CloudScriptService.PrintFunctions(functions, titleId);
+        }
+
+        static async Task ListServerTitleData(string titleId, string titleDevSecret, bool bInternalData = false)
+        {
+            var titleSettings = new PlayFabApiSettings
+            {
+                TitleId = titleId,
+                DeveloperSecretKey = titleDevSecret
+            };
+
+            ServerTitleDataService serverTitleDataService = new ServerTitleDataService(titleSettings);
+            GetTitleDataResult titleDataResult = bInternalData 
+                ? await serverTitleDataService.GetTitleInternalData(null) 
+                : await serverTitleDataService.GetTitleData(null);
+
+            if (titleDataResult != null && titleDataResult.Data != null)
+            {
+                foreach (var kvp in titleDataResult.Data)
+                {
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.Write($"\n\n{kvp.Key}: ");
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.Write($"{kvp.Value}");
+                }
+            }
         }
     }
 }

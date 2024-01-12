@@ -1,5 +1,7 @@
 # GCPlayFabCLI
 
+Simple CLI Tool to help migrating data from one PlayFab title to another.
+
 ## Catalog V2 Usage
 
 ### Listing Catalog V2
@@ -50,6 +52,41 @@ cp functions <sourceTitleId> <sourceDevSecretKey> <targetTitleId> <targetDevSecr
 Params:
 * sourceTitleId: Id of the title in which you want to copy the catalog *FROM*
 * sourceDevSecretKey: Secret key of the title in which you want to copy the catalog *FROM*
+* targetTitleId: Id of the title in which you want to copy the catalog *TO*
+* targetDevSecretKey: Secret key of the title in which you want to copy the catalog *TO*
+* -v: verbose (optional) 
+
+## Server-wide Title Data Usage
+
+### Listing Title Data and Internal Data
+
+```
+ls titledata <titleId> <devSecretKey>
+```
+
+```
+ls titleinternaldata <titleId> <devSecretKey>
+```
+
+Params:
+* titleId: Id of the title
+* devSecretKey: Secret key of the title
+
+### Migrating Title Data and Internal Data
+
+This will copy title data and internal data from the provided source title to the target title.
+
+```
+cp titledata <sourceTitleId> <sourceDevSecretKey> <targetTitleId> <targetDevSecretKey> -v
+```
+
+```
+cp titleinternaldata <sourceTitleId> <sourceDevSecretKey> <targetTitleId> <targetDevSecretKey> -v
+```
+
+Params:
+* sourceTitleId: Id of the title in which you want to copy the catalog *FROM*
+* sourceDevSecretKey: Secret Key of the title in which you want to copy the catalog *FROM*
 * targetTitleId: Id of the title in which you want to copy the catalog *TO*
 * targetDevSecretKey: Secret key of the title in which you want to copy the catalog *TO*
 * -v: verbose (optional) 
