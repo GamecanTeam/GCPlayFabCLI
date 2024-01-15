@@ -74,7 +74,8 @@ Params:
 
 ### Migrating Title Data and Internal Data
 
-This will copy title data and internal data from the provided source title to the target title.
+This will copy title data and internal data from the provided source title to the target title. 
+Notice that it won't copy the build alias, so you still have to do it yourself once you set up servers.
 
 ```
 cp titledata <sourceTitleId> <sourceDevSecretKey> <targetTitleId> <targetDevSecretKey> -v
@@ -82,6 +83,33 @@ cp titledata <sourceTitleId> <sourceDevSecretKey> <targetTitleId> <targetDevSecr
 
 ```
 cp titleinternaldata <sourceTitleId> <sourceDevSecretKey> <targetTitleId> <targetDevSecretKey> -v
+```
+
+Params:
+* sourceTitleId: Id of the title in which you want to copy the catalog *FROM*
+* sourceDevSecretKey: Secret Key of the title in which you want to copy the catalog *FROM*
+* targetTitleId: Id of the title in which you want to copy the catalog *TO*
+* targetDevSecretKey: Secret key of the title in which you want to copy the catalog *TO*
+* -v: verbose (optional) 
+
+## Matchmaking Queues Usage
+
+### Listing Matchmaking Queues
+
+```
+ls matchmakingqueues <titleId> <devSecretKey>
+```
+
+Params:
+* titleId: Id of the title
+* devSecretKey: Secret key of the title
+
+### Migrating Matchmaking Queues
+
+This will copy the matchmaking queues configs from the provided source title to the target title.
+
+```
+cp matchmakingqueues <sourceTitleId> <sourceDevSecretKey> <targetTitleId> <targetDevSecretKey> -v
 ```
 
 Params:

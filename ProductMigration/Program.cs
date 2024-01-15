@@ -68,7 +68,7 @@ namespace ProductMigrationTool
                     {
                         // TODO:
                         Console.ForegroundColor = ConsoleColor.White;
-                        Console.Write($"\nI'm sorry, this context ({context}) is not implemented yet but it is in our TODO list...");
+                        Console.Write($"\nI'm sorry, this context ({context}) is not implemented yet but it is in our TODO list, once playfab engineers add the respective API for that...");
                     }
                     else if (context == "titledata")
                     {
@@ -77,6 +77,10 @@ namespace ProductMigrationTool
                     else if (context == "titleinternaldata")
                     {
                         await ListServerTitleData(titleId, titleDevSecret, true);
+                    }
+                    else if (context == "matchmakingqueues")
+                    {
+                        await ListMatchmakingQueueConfig(titleId, titleDevSecret);
                     }
                     else
                     {
@@ -107,7 +111,7 @@ namespace ProductMigrationTool
                     {
                         // TODO:
                         Console.ForegroundColor = ConsoleColor.White;
-                        Console.Write($"\nI'm sorry, this context ({context}) is not implemented yet but it is in our TODO list...");
+                        Console.Write($"\nI'm sorry, this context ({context}) is not implemented yet but it is in our TODO list, once playfab engineers add the respective API for that......");
                     }
                     else if (context == "titledata")
                     {
@@ -118,6 +122,12 @@ namespace ProductMigrationTool
                     {
                         ServerTitleDataMigrationService serverTitleDataMigrationService = new ServerTitleDataMigrationService(sourceTitleId, sourceTitleSecret, targetTitleId, targetTitleSecret, bVerbose);
                         await serverTitleDataMigrationService.CopyData(true);
+                    }
+                    else if (context == "matchmakingqueues")
+                    {
+                        MatchmakingQueuesMigrationService matchmakingQueuesMigrationService = new MatchmakingQueuesMigrationService(sourceTitleId, sourceTitleSecret, targetTitleId, targetTitleSecret, bVerbose);
+                        await matchmakingQueuesMigrationService.LoginAsync();
+                        await matchmakingQueuesMigrationService.CopyMatchmakingQueuesConfigAsync();
                     }
                     else
                     {
@@ -196,6 +206,27 @@ namespace ProductMigrationTool
                     Console.Write($"{kvp.Value}");
                 }
             }
+        }
+
+        static async Task ListMatchmakingQueueConfig(string titleId, string titleDevSecret)
+        {
+            var titleSettings = new PlayFabApiSettings
+            {
+                TitleId = titleId,
+                DeveloperSecretKey = titleDevSecret
+            };
+
+            var authContext = new PlayFabAuthenticationContext
+            {
+                EntityId = titleSettings.TitleId,
+                EntityType = "title",
+                EntityToken = await TitleAuthUtil.GetTitleEntityToken(titleSettings)
+            };
+
+            MatchmakingQueuesService matchmakingQueuesService = new MatchmakingQueuesService(titleSettings, authContext);
+
+            var mmQueueConfigs = await matchmakingQueuesService.ListMatchmakingQueuesAsync();
+            MatchmakingQueuesService.PrintMatchmakingQueuesConfig(mmQueueConfigs);
         }
     }
 }
