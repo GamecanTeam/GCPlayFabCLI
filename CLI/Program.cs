@@ -14,7 +14,7 @@ namespace ProductMigrationTool
             Console.ForegroundColor = ConsoleColor.Green;
             Console.Write(".oO={ ");
             Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("PlayFab Tool");
+            Console.Write("Gamecan PlayFab CLI Tool");
             Console.ForegroundColor = ConsoleColor.Green;
             Console.Write(" }=Oo.\n");
             Console.ForegroundColor = ConsoleColor.White;
