@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.7.34221.43
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ProductMigration", "ProductMigration\ProductMigration.csproj", "{AD20ED9D-1111-47DB-B41D-39C78095E65C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CLI", "ProductMigration\CLI.csproj", "{AD20ED9D-1111-47DB-B41D-39C78095E65C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{9BAC1804-EE7B-41D9-8E92-C8F4B76B0D54}"
 	ProjectSection(SolutionItems) = preProject

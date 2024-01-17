@@ -2,7 +2,7 @@
 using PlayFab.EconomyModels;
 using System.Text;
 
-namespace ProductMigration.Services.CatalogsV2
+namespace ProductMigration.Services
 {
     class CatalogV2Service
     {

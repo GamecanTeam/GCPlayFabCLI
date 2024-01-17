@@ -36,6 +36,25 @@ namespace ProductMigration.Services
             return response.Result.MatchMakingQueues;
         }
 
+        public async Task<MatchmakingQueueConfig> GetMatchmakingQueueAsync(string queueName)
+        {
+            var request = new GetMatchmakingQueueRequest
+            { 
+                QueueName = queueName
+            };
+
+            var response = await _playFabMultiplayerApi.GetMatchmakingQueueAsync(request);
+
+            if (response.Error != null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write($"\nFailed to get matchmaking queue {queueName} for title {GetTitleId()}. Reason: {response.Error.ErrorMessage}");
+                return null;
+            }
+
+            return response.Result.MatchmakingQueue;
+        }
+
         public async Task RemoveMatchmakingQueueAsync(string queueName)
         {
             var request = new RemoveMatchmakingQueueRequest

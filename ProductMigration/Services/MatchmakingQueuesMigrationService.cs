@@ -84,6 +84,23 @@ namespace ProductMigration.Services
                 return;
             }
 
+            //List<MatchmakingQueueConfig> quuesToBeCopied = new List<MatchmakingQueueConfig>();
+            //foreach (var queueCfg in allMatchmakingQueuesFromSource)
+            //{
+            //    MatchmakingQueueConfig queueToCopy = await _source_matchmakingQueuesService.GetMatchmakingQueueAsync(queueCfg.Name);
+            //    if (queueToCopy != null) 
+            //    {
+            //        quuesToBeCopied.Add(queueToCopy);
+            //    }
+            //}
+
+            //if (quuesToBeCopied == null || quuesToBeCopied.Count == 0)
+            //{
+            //    Console.ForegroundColor = ConsoleColor.DarkRed;
+            //    Console.WriteLine($"\nNo matchmaking queues available in source title {_source_matchmakingQueuesService.GetTitleId()}. Nothing to be done here.");
+            //    return;
+            //}
+
             List<MatchmakingQueueConfig> allMatchmakingQueuesFromTarget = await _target_matchmakingQueuesService.ListMatchmakingQueuesAsync();
 
             if (allMatchmakingQueuesFromTarget != null && allMatchmakingQueuesFromTarget.Count > 0)

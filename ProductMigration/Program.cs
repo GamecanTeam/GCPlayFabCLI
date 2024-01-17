@@ -1,6 +1,5 @@
 ﻿using PlayFab;
 using ProductMigration.Utils.Title;
-using ProductMigration.Services.CatalogsV2;
 using ProductMigration.Services;
 using PlayFab.ServerModels;
 
@@ -15,7 +14,7 @@ namespace ProductMigrationTool
             Console.ForegroundColor = ConsoleColor.Green;
             Console.Write(".oO={ ");
             Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("PlayFab Migration Tool");
+            Console.Write("PlayFab Tool");
             Console.ForegroundColor = ConsoleColor.Green;
             Console.Write(" }=Oo.\n");
             Console.ForegroundColor = ConsoleColor.White;
@@ -51,6 +50,7 @@ namespace ProductMigrationTool
                 string context = commandParts[1];
 
                 // TODO: for now we have only a few commands, should we spend time and create a better design with a dispatcher or something?
+                #region listing
                 if (cmd == "ls" && commandParts.Length >= 3)
                 {
                     string titleId = commandParts[2];
@@ -88,6 +88,8 @@ namespace ProductMigrationTool
                         Console.Write($"I'm sorry, this context ({context}) is not implemented yet!");
                     }
                 }
+                #endregion
+                #region copying
                 else if (cmd == "cp" && commandParts.Length >= 5)
                 {
                     string sourceTitleId = commandParts[2];
@@ -135,6 +137,23 @@ namespace ProductMigrationTool
                         Console.Write($"\n\nI'm sorry, this context ({context}) is not implemented yet!");
                     }
                 }
+                #endregion
+                #region exporting
+                else if (cmd == "export" && commandParts.Length >= 3)
+                {
+                    Dictionary<string, string> dataToExport = new Dictionary<string, string>();
+                    if (context == "player")
+                    {
+                        string dataContext = commandParts[2];
+                        // TODO:
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.Write($"\n\nI'm sorry, this context ({context}) is not implemented yet!");
+                    }
+                }
+                #endregion
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.DarkMagenta;
