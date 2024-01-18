@@ -1,6 +1,7 @@
 ﻿using PlayFab;
 using PlayFab.EconomyModels;
 using ProductMigration.Utils.Title;
+using System.Diagnostics;
 
 namespace ProductMigration.Services
 {
@@ -218,6 +219,13 @@ namespace ProductMigration.Services
                     targetItemReferences.Add(new CatalogItemReference { Amount = itemRef.Amount, Id = targetCatItem.Id });
                 }
 
+                // create new price options if any
+                if (item.PriceOptions != null && item.PriceOptions.Prices != null && item.PriceOptions.Prices.Count > 0)
+                {
+                    CatalogPriceOptions newTargetPriceOptions = BuildCatalogPriceOptionsFromSource(item.PriceOptions);
+                    item.PriceOptions = newTargetPriceOptions;
+                }
+
                 // set the new references
                 item.ItemReferences = targetItemReferences.Count > 0 ? targetItemReferences : null;
                 target_bundlesCatalogItems.Add(item);
@@ -230,7 +238,7 @@ namespace ProductMigration.Services
                 CatalogV2Service.PrintCatalogItems(target_bundlesCatalogItems);
             }
 
-            await _target_catalogV2Service.CreateItems(target_bundlesCatalogItems, true);
+            await _target_catalogV2Service.CreateItems(target_bundlesCatalogItems, true, true);
 
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"\n\nCopying Bundles finished!");
@@ -314,33 +322,9 @@ namespace ProductMigration.Services
                     }
 
                     // NOTE: create the correct catalog price options with the target items id but using the other values from the source
-                    List<CatalogPrice> prices = new List<CatalogPrice>();
-                    foreach (var price in itemRef.PriceOptions.Prices)
+                    CatalogPriceOptions priceOptions = BuildCatalogPriceOptionsFromSource(itemRef.PriceOptions);
+                    if (priceOptions.Prices.Count > 0)
                     {
-                        List <CatalogPriceAmount> catalogPriceAmounts = new List<CatalogPriceAmount>();
-                        foreach (var amount in price.Amounts)
-                        {
-                            CatalogItem? tempSrcCatItem = _allCatalogItemsFromSource.Find(tempItem => tempItem.Id == amount.ItemId);
-                            if (tempSrcCatItem != null)
-                            {
-                                string friendlyId = CatalogV2Service.GetFriendlyId(tempSrcCatItem);
-                                CatalogItem? tempTargetCatItem = _allCatalogItemsFromTarget.Find(tempItem => tempItem.DefaultStackId == tempSrcCatItem.DefaultStackId);
-                                if (tempTargetCatItem != null)
-                                {
-                                    catalogPriceAmounts.Add(new CatalogPriceAmount { Amount = amount.Amount, ItemId = tempTargetCatItem.Id});
-                                }
-                            }
-                        }
-
-                        if (catalogPriceAmounts.Count > 0) 
-                        {
-                            prices.Add(new CatalogPrice { Amounts = catalogPriceAmounts, UnitAmount = price.UnitAmount, UnitDurationInSeconds = price.UnitDurationInSeconds });
-                        }                        
-                    }
-
-                    if (prices.Count > 0)
-                    {
-                        CatalogPriceOptions priceOptions = new CatalogPriceOptions { Prices = prices };
                         var catalogItemReference = new CatalogItemReference
                         {
                             Amount = itemRef.Amount,
@@ -364,10 +348,40 @@ namespace ProductMigration.Services
                 CatalogV2Service.PrintCatalogItems(target_storesCatalogItems);
             }
 
-            await _target_catalogV2Service.CreateItems(target_storesCatalogItems, true);
+            await _target_catalogV2Service.CreateItems(target_storesCatalogItems, true, true);
 
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"\n\nCopying Stores finished!");
+        }
+
+        private CatalogPriceOptions BuildCatalogPriceOptionsFromSource(CatalogPriceOptions sourceCatalogPriceOptions)
+        {
+            // NOTE: create the correct catalog price options with the target items id but using the other values from the source
+            List<CatalogPrice> prices = new List<CatalogPrice>();
+            foreach (var price in sourceCatalogPriceOptions.Prices)
+            {
+                List<CatalogPriceAmount> catalogPriceAmounts = new List<CatalogPriceAmount>();
+                foreach (var amount in price.Amounts)
+                {
+                    CatalogItem? tempSrcCatItem = _allCatalogItemsFromSource.Find(tempItem => tempItem.Id == amount.ItemId);
+                    if (tempSrcCatItem != null)
+                    {
+                        string friendlyId = CatalogV2Service.GetFriendlyId(tempSrcCatItem);
+                        CatalogItem? tempTargetCatItem = _allCatalogItemsFromTarget.Find(tempItem => tempItem.DefaultStackId == tempSrcCatItem.DefaultStackId);
+                        if (tempTargetCatItem != null)
+                        {
+                            catalogPriceAmounts.Add(new CatalogPriceAmount { Amount = amount.Amount, ItemId = tempTargetCatItem.Id });
+                        }
+                    }
+                }
+
+                if (catalogPriceAmounts.Count > 0)
+                {
+                    prices.Add(new CatalogPrice { Amounts = catalogPriceAmounts, UnitAmount = price.UnitAmount, UnitDurationInSeconds = price.UnitDurationInSeconds });
+                }
+            }
+
+            return new CatalogPriceOptions { Prices = prices };
         }
     }
 }
