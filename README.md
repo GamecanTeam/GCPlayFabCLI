@@ -118,3 +118,19 @@ Params:
 * targetTitleId: Id of the title in which you want to copy the catalog *TO*
 * targetDevSecretKey: Secret key of the title in which you want to copy the catalog *TO*
 * -v: verbose (optional) 
+
+---
+# Exporting Data
+
+## Exporting Players Feedbacks to CSV
+
+```
+export player feedback <segmentId> <titleId> <devSecretKey> <fileName.csv> -v
+```
+
+Params:
+* segmentId: ID of the player segment to be exported (keep in mind that each title has a different ID)
+* titleId: Id of the title 
+* devSecretKey: Secret Key of the title 
+* fileName.csv: name of the exported file
+* -v: verbose (optional) 

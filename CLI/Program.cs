@@ -2,6 +2,8 @@
 using ProductMigration.Utils.Title;
 using ProductMigration.Services;
 using PlayFab.ServerModels;
+using Exporter.Services;
+using CLI.Models;
 
 namespace ProductMigrationTool
 {
@@ -139,13 +141,28 @@ namespace ProductMigrationTool
                 }
                 #endregion
                 #region exporting
-                else if (cmd == "export" && commandParts.Length >= 3)
+                else if (cmd == "export" && commandParts.Length >= 6)
                 {
-                    Dictionary<string, string> dataToExport = new Dictionary<string, string>();
                     if (context == "player")
                     {
                         string dataContext = commandParts[2];
-                        // TODO:
+                        string segmentId = commandParts[3];
+                        string titleId = commandParts[4];
+                        string titleDevSecret = commandParts[5];
+                        string filePath = commandParts[6];
+
+                        if (dataContext == "feedback")
+                        {
+                            PlayerExporterService playerExporterService = new PlayerExporterService(titleId, titleDevSecret, bVerbose);
+                            await playerExporterService.Login();
+                            List<UserProfileDTO> usersProfiles = await playerExporterService.GetAllPlayersUserProfilesAsync(segmentId);
+                            PlayerExporterService.ExportFeedbackToCsv(usersProfiles, filePath);
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                            Console.Write($"\n\nI'm sorry, this data context ({dataContext}) is not implemented yet!");
+                        }
                     }
                     else
                     {
