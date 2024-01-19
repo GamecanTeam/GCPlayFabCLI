@@ -115,7 +115,19 @@ namespace ProductMigration.Services
 
             if (itemsToCreate.Count > 0)
             {
-                await _target_catalogV2Service.CreateItems(itemsToCreate);
+                // update price options
+                bool bShouldCreatePriceOptions = false;
+                foreach (CatalogItem item in itemsToCreate) 
+                {
+                    if (item.PriceOptions != null && item.PriceOptions.Prices != null && item.PriceOptions.Prices.Count > 0)
+                    {
+                        bShouldCreatePriceOptions = true;
+                        var newPriceOptions = BuildCatalogPriceOptionsFromSource(item.PriceOptions);
+                        item.PriceOptions = newPriceOptions;
+                    }           
+                }
+
+                await _target_catalogV2Service.CreateItems(itemsToCreate, false, bShouldCreatePriceOptions);
             }
 
             _allCatalogItemsFromTarget = await _target_catalogV2Service.SearchItems(); // cache all items here so we avoid fetching them again for bundles and stores
