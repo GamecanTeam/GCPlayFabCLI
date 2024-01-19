@@ -1,6 +1,6 @@
 ﻿using PlayFab;
 using PlayFab.MultiplayerModels;
-using ProductMigration.Utils.Title;
+using Utils.Title;
 
 namespace ProductMigration.Services
 {

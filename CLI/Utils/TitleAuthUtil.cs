@@ -1,7 +1,7 @@
 ﻿using PlayFab.AuthenticationModels;
 using PlayFab;
 
-namespace ProductMigration.Utils.Title
+namespace Utils.Title
 {
     class TitleAuthUtil
     {
