@@ -246,6 +246,16 @@ namespace ProductMigration.Services
                 {
                     Console.ForegroundColor = ConsoleColor.White;
                     Console.WriteLine($"\nType: {item.Type} - FriendlyId: {friendlyId} (StackId: {item.DefaultStackId})");
+                    if (item.PriceOptions != null)
+                    {
+                        foreach (var price in item.PriceOptions.Prices)
+                        {
+                            foreach (var amount in price.Amounts)
+                            {
+                                Console.WriteLine($"\n\t\tAmount: {amount.Amount}, Id: {amount.ItemId}");
+                            }
+                        }
+                    }
                 }
                 else if (item.Type == "currency")
                 {

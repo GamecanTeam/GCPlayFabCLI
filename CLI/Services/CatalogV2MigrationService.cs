@@ -95,17 +95,15 @@ namespace ProductMigration.Services
             // delete only items that the target has and the source doesn't have
             List<CatalogItem> itemsToDelete = targetItems.Where(targetItem => !sourceItems.Any(sourceItem => sourceItem.DefaultStackId == targetItem.DefaultStackId)).ToList(); // since stack id is the same as friendly id in our design we're going to rely on it in here due to it's simplicit to fetch xD
             // create only items that target doesn't have it yet
-            List<CatalogItem> itemsToCreate = sourceItems.Where(sourceItem => !targetItems.Any(targetItem => targetItem.DefaultStackId == sourceItem.DefaultStackId)).ToList();            
+            List<CatalogItem> itemsToCreate = sourceItems.Where(sourceItem => !targetItems.Any(targetItem => targetItem.DefaultStackId == sourceItem.DefaultStackId)).ToList();
+            // keep old items that are still valid on target and not marked to delete so we can use them to build catalog price options for the target items
+            List<CatalogItem> targetValidOldItems = targetItems.Where(targetItem => !itemsToDelete.Any(tgtItemToDel => tgtItemToDel.DefaultStackId == targetItem.DefaultStackId)).ToList();
 
             if (_bVerbose)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"\nNumber of catalog items to delete from the target title: {itemsToDelete.Count}\n");
                 CatalogV2Service.PrintCatalogItems(itemsToDelete);
-
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"\nNumber of catalog items to create in the target title: {itemsToCreate.Count}\n");
-                CatalogV2Service.PrintCatalogItems(itemsToCreate);
             }
 
             if (itemsToDelete.Count > 0)
@@ -115,19 +113,60 @@ namespace ProductMigration.Services
 
             if (itemsToCreate.Count > 0)
             {
-                // update price options
+                List<CatalogItem> finalItemsToCreate = new List<CatalogItem>();
+                // check if we have price options for that item, if so, we must update price options item ref with the correct item ID
                 bool bShouldCreatePriceOptions = false;
                 foreach (CatalogItem item in itemsToCreate) 
                 {
+                    // at this point we have the correct amount but the ID is from the source items, so we must fetch the ID from the target
                     if (item.PriceOptions != null && item.PriceOptions.Prices != null && item.PriceOptions.Prices.Count > 0)
                     {
                         bShouldCreatePriceOptions = true;
-                        var newPriceOptions = BuildCatalogPriceOptionsFromSource(item.PriceOptions);
-                        item.PriceOptions = newPriceOptions;
-                    }           
+                        CatalogPriceOptions newPriceOptions = BuildCatalogPriceOptionsFromSourceDataAndTargetIds(item.PriceOptions, _allCatalogItemsFromSource, targetValidOldItems);
+                        item.PriceOptions = newPriceOptions;                        
+                    }
+
+                    finalItemsToCreate.Add(item);
                 }
 
-                await _target_catalogV2Service.CreateItems(itemsToCreate, false, bShouldCreatePriceOptions);
+                if (_bVerbose)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"\nNumber of catalog items to create in the target title: {finalItemsToCreate.Count}\n");
+                    CatalogV2Service.PrintCatalogItems(itemsToCreate);
+                }
+
+                // remaining items are those that aren't marked to delete and can't be created now since they reference an item that is about to be created, we're going to create them after we create their references
+                List<CatalogItem> remainingItemsToCreate = itemsToCreate.Where(targetItem => !finalItemsToCreate.Any(tgtItemToDel => tgtItemToDel.DefaultStackId == targetItem.DefaultStackId)).ToList();
+                if (remainingItemsToCreate.Count > 0 && _bVerbose)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    Console.WriteLine($"\n{remainingItemsToCreate.Count} remaining items due to lack of references for price options. We will try to create them once the first batch is done, if they are not created, try to run the command again.\n");
+                }
+
+                // create our first batch of items
+                await _target_catalogV2Service.CreateItems(finalItemsToCreate, false, bShouldCreatePriceOptions);
+
+                if (remainingItemsToCreate.Count > 0)
+                {
+                    if (_bVerbose)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine($"\nUpdating price options for the remaning {remainingItemsToCreate.Count} items.\n");
+                    }
+
+                    // updates our target catalog with the most recent created items so we can fetch their ID for price options
+                    _allCatalogItemsFromTarget = await _target_catalogV2Service.SearchItems();
+
+                    foreach (CatalogItem item in remainingItemsToCreate)
+                    {
+                        // now we get the correct ID that was created and build the price options for the remaining items
+                        CatalogPriceOptions newPriceOptions = BuildCatalogPriceOptionsFromSourceDataAndTargetIds(item.PriceOptions, _allCatalogItemsFromSource, _allCatalogItemsFromTarget);
+                        item.PriceOptions = newPriceOptions;
+                    }                    
+
+                    await _target_catalogV2Service.CreateItems(remainingItemsToCreate, false, true);
+                }
             }
 
             _allCatalogItemsFromTarget = await _target_catalogV2Service.SearchItems(); // cache all items here so we avoid fetching them again for bundles and stores
@@ -233,7 +272,7 @@ namespace ProductMigration.Services
                 // create new price options if any
                 if (item.PriceOptions != null && item.PriceOptions.Prices != null && item.PriceOptions.Prices.Count > 0)
                 {
-                    CatalogPriceOptions newTargetPriceOptions = BuildCatalogPriceOptionsFromSource(item.PriceOptions);
+                    CatalogPriceOptions newTargetPriceOptions = BuildCatalogPriceOptionsFromSourceDataAndTargetIds(item.PriceOptions, _allCatalogItemsFromSource, _allCatalogItemsFromTarget);
                     item.PriceOptions = newTargetPriceOptions;
                 }
 
@@ -333,7 +372,7 @@ namespace ProductMigration.Services
                     }
 
                     // NOTE: create the correct catalog price options with the target items id but using the other values from the source
-                    CatalogPriceOptions priceOptions = BuildCatalogPriceOptionsFromSource(itemRef.PriceOptions);
+                    CatalogPriceOptions priceOptions = BuildCatalogPriceOptionsFromSourceDataAndTargetIds(itemRef.PriceOptions, _allCatalogItemsFromSource,_allCatalogItemsFromTarget);
                     if (priceOptions.Prices.Count > 0)
                     {
                         var catalogItemReference = new CatalogItemReference
@@ -365,7 +404,7 @@ namespace ProductMigration.Services
             Console.WriteLine($"\n\nCopying Stores finished!");
         }
 
-        private CatalogPriceOptions BuildCatalogPriceOptionsFromSource(CatalogPriceOptions sourceCatalogPriceOptions)
+        private CatalogPriceOptions BuildCatalogPriceOptionsFromSourceDataAndTargetIds(CatalogPriceOptions sourceCatalogPriceOptions, List<CatalogItem> sourceCatalogItems, List<CatalogItem> targetCatalogItems)
         {
             // NOTE: create the correct catalog price options with the target items id but using the other values from the source
             List<CatalogPrice> prices = new List<CatalogPrice>();
@@ -374,11 +413,11 @@ namespace ProductMigration.Services
                 List<CatalogPriceAmount> catalogPriceAmounts = new List<CatalogPriceAmount>();
                 foreach (var amount in price.Amounts)
                 {
-                    CatalogItem? tempSrcCatItem = _allCatalogItemsFromSource.Find(tempItem => tempItem.Id == amount.ItemId);
+                    CatalogItem? tempSrcCatItem = sourceCatalogItems.Find(tempItem => tempItem.Id == amount.ItemId);
                     if (tempSrcCatItem != null)
                     {
                         string friendlyId = CatalogV2Service.GetFriendlyId(tempSrcCatItem);
-                        CatalogItem? tempTargetCatItem = _allCatalogItemsFromTarget.Find(tempItem => tempItem.DefaultStackId == tempSrcCatItem.DefaultStackId);
+                        CatalogItem? tempTargetCatItem = targetCatalogItems.Find(tempItem => tempItem.DefaultStackId == tempSrcCatItem.DefaultStackId);
                         if (tempTargetCatItem != null)
                         {
                             catalogPriceAmounts.Add(new CatalogPriceAmount { Amount = amount.Amount, ItemId = tempTargetCatItem.Id });
