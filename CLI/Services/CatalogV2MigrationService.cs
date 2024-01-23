@@ -78,12 +78,20 @@ namespace ProductMigration.Services
 
         public async Task CopyCatalogV2()
         {
+            // NOTE: keep in mind that there is a correct order when migrating catalog items due to items being referenced in one another:
+            // 1) Usually currencies are used as references for price options, so we must migrate them first.
+            // 2) Secondly we migrate the catalog items that could have price options or not
+            // 3) Third we migrate bundles which are made of catalog items and could have price options as well
+            // 4) Stores, subscriptions and UGC comes next
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"\n\nCopying CatalogV2 from title {_sourceTitleId} to {_targetTitleId}...");
 
+            // NOTE: migrate currencies first since it is going to be used as item ref for price options (items can be used too but that's not an usual thing)
+            await CopyCurrencies();
+
             // fetch all catalog items from the source title
             _allCatalogItemsFromSource = await _source_catalogV2Service.SearchItems();
-            List<CatalogItem> sourceItems = _allCatalogItemsFromSource.Where(x => x.Type == "catalogItem" || x.Type == "currency").ToList(); // bundles and stores items will be handled after creating the catalog items and currencies
+            List<CatalogItem> sourceItems = _allCatalogItemsFromSource.Where(x => x.Type == "catalogItem").ToList(); // bundles and stores items will be handled after creating the catalog items
 
             if (_bVerbose)
             {
@@ -91,7 +99,7 @@ namespace ProductMigration.Services
             }
 
             _allOldCatalogItemsFromTarget = await _target_catalogV2Service.SearchItems();
-            List<CatalogItem> targetItems = _allOldCatalogItemsFromTarget.Where(x => x.Type == "catalogItem" || x.Type == "currency").ToList();
+            List<CatalogItem> targetItems = _allOldCatalogItemsFromTarget.Where(x => x.Type == "catalogItem").ToList();
             // delete only items that the target has and the source doesn't have
             List<CatalogItem> itemsToDelete = targetItems.Where(targetItem => !sourceItems.Any(sourceItem => sourceItem.DefaultStackId == targetItem.DefaultStackId)).ToList(); // since stack id is the same as friendly id in our design we're going to rely on it in here due to it's simplicit to fetch xD
             // create only items that target doesn't have it yet
@@ -172,10 +180,62 @@ namespace ProductMigration.Services
             _allCatalogItemsFromTarget = await _target_catalogV2Service.SearchItems(); // cache all items here so we avoid fetching them again for bundles and stores
 
             await CopyBundles();
+
             await CopyStores();
 
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"\n\nCopying CatalogV2 finished!");
+        }
+
+        public async Task CopyCurrencies()
+        {
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.WriteLine($"\n\nCopying Currencies...");
+
+            // fetch all catalog items from the source title and filter available currencies
+            var sourceCatalogItems = await _source_catalogV2Service.SearchItems();
+            List<CatalogItem> sourceCurrencies = sourceCatalogItems.Where(x => x.Type == "currency").ToList();
+
+            if (_bVerbose)
+            {
+                CatalogV2Service.PrintCatalogItems(sourceCurrencies);
+            }
+
+            // fetch all items for the target and filter by currencies
+            var targetCatalogItems = await _target_catalogV2Service.SearchItems();
+            var targetCurrencies = targetCatalogItems.Where(x => x.Type == "currency").ToList();
+
+            // delete only currencies that the target has and the source doesn't have
+            List<CatalogItem> currenciesToDelete = targetCurrencies.Where(targetItem => !sourceCurrencies.Any(sourceItem => sourceItem.DefaultStackId == targetItem.DefaultStackId)).ToList();
+            // create only items that target doesn't have it yet
+            List<CatalogItem> currenciesToCreate = sourceCurrencies.Where(sourceItem => !targetCurrencies.Any(targetItem => targetItem.DefaultStackId == sourceItem.DefaultStackId)).ToList();
+
+            if (_bVerbose)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkRed;
+                Console.WriteLine($"\nNumber of currencies to delete from the target title: {currenciesToDelete.Count}\n");
+                CatalogV2Service.PrintCatalogItems(currenciesToDelete);
+            }
+
+            if (currenciesToDelete.Count > 0)
+            {
+                await _target_catalogV2Service.DeleteItems(currenciesToDelete);
+            }
+
+            if (_bVerbose)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine($"\nNumber of currencies to create in target title: {currenciesToCreate.Count}\n");
+                CatalogV2Service.PrintCatalogItems(currenciesToCreate);
+            }
+
+            if (currenciesToCreate.Count > 0)
+            {
+                await _target_catalogV2Service.CreateItems(currenciesToCreate);
+            }
+
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.WriteLine($"\n\nCopying Currencies finished!");
         }
 
         public async Task CopyBundles()
