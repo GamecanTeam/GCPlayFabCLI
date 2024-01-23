@@ -134,3 +134,18 @@ Params:
 * devSecretKey: Secret Key of the title 
 * fileName.csv: name of the exported file
 * -v: verbose (optional) 
+
+---
+# Deleting // TODO
+
+## Deleting Player's Inventory Items
+
+```
+delete player item <titlePlayerAccountId> <titleId> <devSecretKey> -v
+```
+
+Params:
+* titlePlayerAccountId: ID of the player in that title
+* titleId: Id of the title 
+* devSecretKey: Secret Key of the title 
+* -v: verbose (optional) 

@@ -144,15 +144,16 @@ namespace ProductMigrationTool
                 #region exporting
                 else if (cmd == "export" && commandParts.Length >= 6)
                 {
+                    string subContext = commandParts[2];
+
                     if (context == "player")
-                    {
-                        string dataContext = commandParts[2];
+                    {                        
                         string segmentId = commandParts[3];
                         string titleId = commandParts[4];
                         string titleDevSecret = commandParts[5];
                         string filePath = commandParts[6];
 
-                        if (dataContext == "feedback")
+                        if (subContext == "feedback")
                         {
                             PlayerExporterService playerExporterService = new PlayerExporterService(titleId, titleDevSecret, bVerbose);
                             await playerExporterService.Login();
@@ -162,7 +163,7 @@ namespace ProductMigrationTool
                         else
                         {
                             Console.ForegroundColor = ConsoleColor.Gray;
-                            Console.Write($"\n\nI'm sorry, this data context ({dataContext}) is not implemented yet!");
+                            Console.Write($"\n\nI'm sorry, this data context ({subContext}) is not implemented yet!");
                         }
                     }
                     else
@@ -172,21 +173,30 @@ namespace ProductMigrationTool
                     }
                 }
                 #endregion
-                #region players inventory
-                else if (cmd == "inventory" && commandParts.Length >= 7)
+                #region deleting
+                else if (cmd == "delete" && commandParts.Length >= 7)
                 {
-                    if (context == "delete")
-                    {
-                        string titleId = commandParts[3];
-                        string titleDevSecret = commandParts[4];
+                    string subContext = commandParts[2];
+                    string titleId = commandParts[3];
+                    string titleDevSecret = commandParts[4];
+
+                    if (context == "player")
+                    {                        
                         string titlePlayerAccountId = commandParts[5];
                         string collectionId = commandParts[6];
 
                         List<string> itemsIdsToDelete = commandParts.Skip(7).ToList();
                         PlayerInventoryService playerInventoryService = new PlayerInventoryService(titleId, titleDevSecret, titlePlayerAccountId, bVerbose);
-                        await playerInventoryService.SetupEconomyApi();
-                        await playerInventoryService.DeleteInventoryItems(collectionId, itemsIdsToDelete);
-                    }
+                        await playerInventoryService.SetupEconomyApiAsync();
+                        if (itemsIdsToDelete.Count > 0)
+                        {
+                            await playerInventoryService.BatchDeleteInventoryItemsAsync(collectionId, itemsIdsToDelete);
+                        }
+                        else
+                        {
+                            await playerInventoryService.DeleteAllInventoryItemsAsync(collectionId);
+                        }
+                    }                    
                     else
                     {
                         Console.ForegroundColor = ConsoleColor.Gray;

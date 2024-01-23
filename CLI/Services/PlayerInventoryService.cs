@@ -1,4 +1,5 @@
 ﻿using PlayFab;
+using PlayFab.EconomyModels;
 using Utils.Title;
 
 namespace CLI.Services
@@ -24,7 +25,7 @@ namespace CLI.Services
             return _titleId;
         }
 
-        public async Task SetupEconomyApi()
+        public async Task SetupEconomyApiAsync()
         {
             var _currentSetting = new PlayFabApiSettings
             {
@@ -41,8 +42,8 @@ namespace CLI.Services
 
             _playFabEconomyApi = new PlayFabEconomyInstanceAPI(_currentSetting, authContext);
         }
-
-        public async Task DeleteInventoryItems(string collectionId, List<string> itemsFriendlyIds)
+        
+        public async Task DeleteInventoryItemsAsync(string collectionId, List<string> itemsFriendlyIds)
         {
             foreach (var itemId in itemsFriendlyIds)
             { 
@@ -79,5 +80,117 @@ namespace CLI.Services
             }
         }
 
+        public async Task BatchDeleteInventoryItemsAsync(string collectionId, List<string> itemsToDelete)
+        {
+            while (itemsToDelete.Count > 0)
+            {
+                int numberOfItemsPerChunk = 10; // playfab only allows 10 operations at a time
+                List<string> chunk = itemsToDelete.Take(numberOfItemsPerChunk).ToList();
+                var chunkItemsIds = string.Join(", ", chunk);
+
+                List<InventoryOperation> inventoryOperations = new List<InventoryOperation>();
+
+                foreach (var item in chunk)
+                {
+                    var inventoryOperation = new InventoryOperation
+                    {
+                        Delete = new DeleteInventoryItemsOperation
+                        {
+                            Item = new InventoryItemReference
+                            {
+                                Id = item
+                            }
+                        }
+                    };
+
+                    inventoryOperations.Add(inventoryOperation);
+                }
+
+                var request = new ExecuteInventoryOperationsRequest
+                {
+                    Entity = new PlayFab.EconomyModels.EntityKey
+                    {
+                        Id = _titlePlayerAccountId,
+                        Type = "title_player_account"
+                    },
+                    Operations = inventoryOperations,
+                    CollectionId = collectionId
+                };
+
+                var response = await _playFabEconomyApi.ExecuteInventoryOperationsAsync(request);
+
+                if (response.Error != null) 
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write($"\nFailed to delete batch of items in chunk: {chunkItemsIds}. Reason: {response.Error.ErrorMessage}");
+                    itemsToDelete = itemsToDelete.Skip(numberOfItemsPerChunk).ToList();
+                    continue;
+                }
+
+                itemsToDelete = itemsToDelete.Skip(numberOfItemsPerChunk).ToList();
+                Console.Write($"Deleted the chunk of items: {chunkItemsIds}. (Chunk had {chunk.Count} items, {itemsToDelete.Count} items left.)");
+            }
+        }
+              
+        public async Task<List<InventoryItem>> GetInventoryItemsAsync(string collectionId)
+        {
+            var request = new GetInventoryItemsRequest
+            {
+                Entity = new EntityKey
+                {
+                    Id = _titlePlayerAccountId,
+                    Type = "title_player_account"
+                },
+                Count = 50,
+                CollectionId = collectionId
+            };
+
+            var response = await _playFabEconomyApi.GetInventoryItemsAsync(request);
+
+            if (response.Error != null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write($"\nFailed to get inventory items from collection {collectionId}. Reason: {response.Error.ErrorMessage}");
+                return null;
+            }
+
+            List<InventoryItem> items = response.Result.Items;
+
+            request.ContinuationToken = response.Result.ContinuationToken;
+            while (!string.IsNullOrEmpty(request.ContinuationToken))
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write("\nFetching next page...");
+                response = await _playFabEconomyApi.GetInventoryItemsAsync(request);
+
+                if (response.Error != null)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write($"\nFailed to fetch next page of the inventory items. Reason: {response.Error.ErrorMessage}");
+                    return items;
+                }
+
+                items.AddRange(response.Result.Items);
+                request.ContinuationToken = response.Result.ContinuationToken;
+            }
+
+            return items;
+        }
+
+        public async Task DeleteAllInventoryItemsAsync(string collectionId)
+        {
+            var allItems = await GetInventoryItemsAsync(collectionId);
+
+            if (allItems == null || allItems.Count == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write($"\nThere are no items to delete for player {_titlePlayerAccountId} in collection {collectionId} for title {GetTitleId()}");
+                return;
+            }
+
+            List<string> itemsIds = allItems.Select(item => item.Id).ToList();
+
+            await BatchDeleteInventoryItemsAsync(collectionId, itemsIds);
+        }
     }
 }
