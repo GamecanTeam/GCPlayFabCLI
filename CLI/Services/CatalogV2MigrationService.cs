@@ -464,9 +464,9 @@ namespace ProductMigration.Services
             Console.WriteLine($"\n\nCopying Stores finished!");
         }
 
+        // NOTE: create the correct catalog price options with the target items id but using the other values from source (e.g. amount)
         private CatalogPriceOptions BuildCatalogPriceOptionsFromSourceDataAndTargetIds(CatalogPriceOptions sourceCatalogPriceOptions, List<CatalogItem> sourceCatalogItems, List<CatalogItem> targetCatalogItems)
-        {
-            // NOTE: create the correct catalog price options with the target items id but using the other values from the source
+        {            
             List<CatalogPrice> prices = new List<CatalogPrice>();
             foreach (var price in sourceCatalogPriceOptions.Prices)
             {

@@ -136,16 +136,20 @@ Params:
 * -v: verbose (optional) 
 
 ---
-# Deleting // TODO
+# Deleting
 
 ## Deleting Player's Inventory Items
 
 ```
-delete player item <titlePlayerAccountId> <titleId> <devSecretKey> -v
+delete player inventory <titleId> <devSecretKey> <titlePlayerAccountId> <collectionId> <friendly.item.id1> <friendly.item.id2> <friendly.item.idN> -v
 ```
 
 Params:
-* titlePlayerAccountId: ID of the player in that title
 * titleId: Id of the title 
-* devSecretKey: Secret Key of the title 
+* devSecretKey: Secret Key of the title
+* titlePlayerAccountId: ID of the player in that title
+* collectionId: inventory collection id to delete from
+* friendly.item.id1: Friendly item ID (the AlteranteId in PlayFab) (optional, if not specified all inventory items will be deleted, one by one)
 * -v: verbose (optional) 
+
+*NOTE: If not items is specified, all inventory items will be deleted!*

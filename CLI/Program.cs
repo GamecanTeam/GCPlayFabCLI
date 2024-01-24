@@ -5,6 +5,7 @@ using PlayFab.ServerModels;
 using Exporter.Services;
 using CLI.Models;
 using CLI.Services;
+using System.Text.RegularExpressions;
 
 namespace ProductMigrationTool
 {
@@ -180,27 +181,46 @@ namespace ProductMigrationTool
                     string titleId = commandParts[3];
                     string titleDevSecret = commandParts[4];
 
-                    if (context == "player")
-                    {                        
+                    if (context == "player" && subContext == "inventory")
+                    {
                         string titlePlayerAccountId = commandParts[5];
                         string collectionId = commandParts[6];
 
-                        List<string> itemsIdsToDelete = commandParts.Skip(7).ToList();
+                        // Filter the command list and look for anything that looks like an item ID (name1.name2, name1.name2.nameN)
+                        string pattern = @"^[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)+$";
+                        List<string> itemsIdsToDelete = commandParts.Where(id => Regex.IsMatch(id, pattern)).ToList();
+
                         PlayerInventoryService playerInventoryService = new PlayerInventoryService(titleId, titleDevSecret, titlePlayerAccountId, bVerbose);
                         await playerInventoryService.SetupEconomyApiAsync();
+                        
                         if (itemsIdsToDelete.Count > 0)
                         {
+                            if (bVerbose)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Gray;
+                                Console.Write($"\n{itemsIdsToDelete.Count} items to delete:");
+                                foreach (var itemId in itemsIdsToDelete)
+                                { 
+                                    Console.Write($"\n{itemId}");
+                                }
+                            }
+
                             await playerInventoryService.BatchDeleteInventoryItemsAsync(collectionId, itemsIdsToDelete);
                         }
                         else
                         {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.Write($"\nNo items were specified, which means that ALL THE ITEMS will be deleted from player {titlePlayerAccountId} for title {titleId} in collection {collectionId}.");
+
+                            // TODO: change this call to delete the whole collection instead;
+                            // once we confirm that this feature is not broken in PlayFab (remember that it was broken before and we couldn't create news items in that collection after deleting it)
                             await playerInventoryService.DeleteAllInventoryItemsAsync(collectionId);
                         }
                     }                    
                     else
                     {
                         Console.ForegroundColor = ConsoleColor.Gray;
-                        Console.Write($"\n\nI'm sorry, this context ({context}) is not implemented yet!");
+                        Console.Write($"\n\nI'm sorry, this context ({context} / {subContext}) is not implemented yet!");
                     }
                 }
                 #endregion

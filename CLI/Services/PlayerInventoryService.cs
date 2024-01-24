@@ -98,7 +98,11 @@ namespace CLI.Services
                         {
                             Item = new InventoryItemReference
                             {
-                                Id = item
+                                AlternateId = new AlternateId
+                                {
+                                    Type = "FriendlyId",
+                                    Value = item
+                                }
                             }
                         }
                     };
@@ -122,13 +126,14 @@ namespace CLI.Services
                 if (response.Error != null) 
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Write($"\nFailed to delete batch of items in chunk: {chunkItemsIds}. Reason: {response.Error.ErrorMessage}");
+                    Console.Write($"\nFailed to delete batch of items in chunk: {chunkItemsIds}. Reason: {response.Error.ErrorMessage}\nYOU MUST CALL IT AGAIN FOR THIS CHUNK WITHOUT THE FAULTY ITEM!");
                     itemsToDelete = itemsToDelete.Skip(numberOfItemsPerChunk).ToList();
                     continue;
                 }
 
                 itemsToDelete = itemsToDelete.Skip(numberOfItemsPerChunk).ToList();
-                Console.Write($"Deleted the chunk of items: {chunkItemsIds}. (Chunk had {chunk.Count} items, {itemsToDelete.Count} items left.)");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write($"\nDeleted chunk of items: {chunkItemsIds}. (Chunk had {chunk.Count} items, {itemsToDelete.Count} items left.)");
             }
         }
               
