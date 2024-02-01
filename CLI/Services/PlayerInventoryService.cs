@@ -80,7 +80,7 @@ namespace CLI.Services
             }
         }
 
-        public async Task BatchDeleteInventoryItemsAsync(string collectionId, List<string> itemsToDelete)
+        public async Task BatchDeleteInventoryItemsAsync(string collectionId, List<string> itemsToDelete, bool bAlternateId = true)
         {
             while (itemsToDelete.Count > 0)
             {
@@ -98,11 +98,12 @@ namespace CLI.Services
                         {
                             Item = new InventoryItemReference
                             {
-                                AlternateId = new AlternateId
+                                Id = bAlternateId ? null : item,
+                                AlternateId = bAlternateId ? new AlternateId
                                 {
                                     Type = "FriendlyId",
                                     Value = item
-                                }
+                                } : null
                             }
                         }
                     };
@@ -193,9 +194,9 @@ namespace CLI.Services
                 return;
             }
 
-            List<string> itemsIds = allItems.Select(item => item.Id).ToList();
+            List<string> itemsIds = allItems.Where(curItem => curItem.Type == "catalogItem").Select(item => item.Id).ToList();
 
-            await BatchDeleteInventoryItemsAsync(collectionId, itemsIds);
+            await BatchDeleteInventoryItemsAsync(collectionId, itemsIds, false);
         }
 
         public async Task GrantItemsAsync(string collectionId, List<string> itemsToGrant)
