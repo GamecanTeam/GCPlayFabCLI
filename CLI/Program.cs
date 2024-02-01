@@ -53,7 +53,7 @@ namespace ProductMigrationTool
                 var cmd = commandParts[0].ToLower();
                 string context = commandParts[1];
 
-                // TODO: for now we have only a few commands, should we spend time and create a better design with a dispatcher or something?
+                // TODO: These commands are getting too big and too repetitive already. Create a better design with a dispatcher or something...
                 #region listing
                 if (cmd == "ls" && commandParts.Length >= 3)
                 {
@@ -148,7 +148,7 @@ namespace ProductMigrationTool
                     string subContext = commandParts[2];
 
                     if (context == "player")
-                    {                        
+                    {
                         string segmentId = commandParts[3];
                         string titleId = commandParts[4];
                         string titleDevSecret = commandParts[5];
@@ -192,7 +192,7 @@ namespace ProductMigrationTool
 
                         PlayerInventoryService playerInventoryService = new PlayerInventoryService(titleId, titleDevSecret, titlePlayerAccountId, bVerbose);
                         await playerInventoryService.SetupEconomyApiAsync();
-                        
+
                         if (itemsIdsToDelete.Count > 0)
                         {
                             if (bVerbose)
@@ -200,7 +200,7 @@ namespace ProductMigrationTool
                                 Console.ForegroundColor = ConsoleColor.Gray;
                                 Console.Write($"\n{itemsIdsToDelete.Count} items to delete:");
                                 foreach (var itemId in itemsIdsToDelete)
-                                { 
+                                {
                                     Console.Write($"\n{itemId}");
                                 }
                             }
@@ -216,7 +216,48 @@ namespace ProductMigrationTool
                             // once we confirm that this feature is not broken in PlayFab (remember that it was broken before and we couldn't create news items in that collection after deleting it)
                             await playerInventoryService.DeleteAllInventoryItemsAsync(collectionId);
                         }
-                    }                    
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.Write($"\n\nI'm sorry, this context ({context} / {subContext}) is not implemented yet!");
+                    }
+                }
+                #endregion
+                #region adding
+                else if (cmd == "add" && commandParts.Length >= 7)
+                {
+                    string subContext = commandParts[2];
+                    string titleId = commandParts[3];
+                    string titleDevSecret = commandParts[4];
+
+                    if (context == "player" && subContext == "inventory")
+                    {
+                        string titlePlayerAccountId = commandParts[5];
+                        string collectionId = commandParts[6];
+
+                        // Filter the command list and look for anything that looks like an item ID (name1.name2, name1.name2.nameN)
+                        string pattern = @"^[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)+$";
+                        List<string> itemsIdsToAdd = commandParts.Where(id => Regex.IsMatch(id, pattern)).ToList();
+
+                        PlayerInventoryService playerInventoryService = new PlayerInventoryService(titleId, titleDevSecret, titlePlayerAccountId, bVerbose);
+                        await playerInventoryService.SetupEconomyApiAsync();
+
+                        if (itemsIdsToAdd.Count > 0)
+                        {
+                            if (bVerbose)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Gray;
+                                Console.Write($"\n{itemsIdsToAdd.Count} items to add:");
+                                foreach (var itemId in itemsIdsToAdd)
+                                {
+                                    Console.Write($"\n{itemId}");
+                                }
+                            }
+
+                            await playerInventoryService.GrantItemsAsync(collectionId, itemsIdsToAdd);
+                        }                        
+                    }
                     else
                     {
                         Console.ForegroundColor = ConsoleColor.Gray;

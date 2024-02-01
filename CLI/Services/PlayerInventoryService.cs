@@ -197,5 +197,63 @@ namespace CLI.Services
 
             await BatchDeleteInventoryItemsAsync(collectionId, itemsIds);
         }
+
+        public async Task GrantItemsAsync(string collectionId, List<string> itemsToGrant)
+        {
+            while (itemsToGrant.Count > 0)
+            {
+                int numberOfItemsPerChunk = 10; // playfab only allows 10 operations at a time
+                List<string> chunk = itemsToGrant.Take(numberOfItemsPerChunk).ToList();
+                var chunkItemsIds = string.Join(", ", chunk);
+
+                List<InventoryOperation> inventoryOperations = new List<InventoryOperation>();
+
+                foreach (var item in chunk)
+                {
+                    var inventoryOperation = new InventoryOperation
+                    {
+                        Add = new AddInventoryItemsOperation
+                        {
+                            Amount = 1,
+                            Item = new InventoryItemReference
+                            {
+                                AlternateId = new AlternateId
+                                {
+                                    Type = "FriendlyId",
+                                    Value = item
+                                }
+                            }
+                        }
+                    };
+
+                    inventoryOperations.Add(inventoryOperation);
+                }
+
+                var request = new ExecuteInventoryOperationsRequest
+                {
+                    Entity = new PlayFab.EconomyModels.EntityKey
+                    {
+                        Id = _titlePlayerAccountId,
+                        Type = "title_player_account"
+                    },
+                    Operations = inventoryOperations,
+                    CollectionId = collectionId
+                };
+
+                var response = await _playFabEconomyApi.ExecuteInventoryOperationsAsync(request);
+
+                if (response.Error != null)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write($"\nFailed to add batch of items in chunk: {chunkItemsIds}. Reason: {response.Error.ErrorMessage}\nYOU MUST CALL IT AGAIN FOR THIS CHUNK WITHOUT THE FAULTY ITEM!");
+                    itemsToGrant = itemsToGrant.Skip(numberOfItemsPerChunk).ToList();
+                    continue;
+                }
+
+                itemsToGrant = itemsToGrant.Skip(numberOfItemsPerChunk).ToList();
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write($"\nGranted chunk of items: {chunkItemsIds}. (Chunk had {chunk.Count} items, {itemsToGrant.Count} items left.)");
+            }
+        }
     }
 }

@@ -153,3 +153,22 @@ Params:
 * -v: verbose (optional) 
 
 *NOTE: If not items is specified, all inventory items will be deleted!*
+
+---
+# Adding
+
+## Adding Player's Inventory Items
+
+```
+add player inventory <titleId> <devSecretKey> <titlePlayerAccountId> <collectionId> <friendly.item.id1> <friendly.item.id2> <friendly.item.idN> -v
+```
+
+Params:
+* titleId: Id of the title 
+* devSecretKey: Secret Key of the title
+* titlePlayerAccountId: ID of the player in that title
+* collectionId: inventory collection id to delete from
+* friendly.item.id1: Friendly item ID (the AlteranteId in PlayFab)
+* -v: verbose (optional) 
+
+*NOTE: This is going to add one single item even if the list has repeated items (Amount = 1). Not meant to be used with currencies or stackable items. You can use with stackble items, but you're going to get one single item at a time (not efficient if you want to add lots of the same item).*
