@@ -76,7 +76,7 @@ namespace ProductMigration.Services
             }
         }
 
-        public async Task CopyCatalogV2()
+        public async Task CopyCatalogV2(bool bDeleteAndRecreate = false)
         {
             // NOTE: keep in mind that there is a correct order when migrating catalog items due to items being referenced in one another:
             // 1) Usually currencies are used as references for price options, so we must migrate them first.
@@ -101,11 +101,17 @@ namespace ProductMigration.Services
             _allOldCatalogItemsFromTarget = await _target_catalogV2Service.SearchItems();
             List<CatalogItem> targetItems = _allOldCatalogItemsFromTarget.Where(x => x.Type == "catalogItem").ToList();
             // delete only items that the target has and the source doesn't have
-            List<CatalogItem> itemsToDelete = targetItems.Where(targetItem => !sourceItems.Any(sourceItem => sourceItem.DefaultStackId == targetItem.DefaultStackId)).ToList(); // since stack id is the same as friendly id in our design we're going to rely on it in here due to it's simplicit to fetch xD
-            // create only items that target doesn't have it yet
-            List<CatalogItem> itemsToCreate = sourceItems.Where(sourceItem => !targetItems.Any(targetItem => targetItem.DefaultStackId == sourceItem.DefaultStackId)).ToList();
+            List<CatalogItem> itemsToDelete = bDeleteAndRecreate 
+                ? targetItems // we don't want to keep old items, let's just delete everything and create them again based on the source
+                : targetItems.Where(targetItem => !sourceItems.Any(sourceItem => sourceItem.DefaultStackId == targetItem.DefaultStackId)).ToList(); // since stack id is the same as friendly id in our design we're going to rely on it in here due to it's simplicit to fetch xD            
+            
+            List<CatalogItem> itemsToCreate = bDeleteAndRecreate
+                ? sourceItems // everything from the source
+                : sourceItems.Where(sourceItem => !targetItems.Any(targetItem => targetItem.DefaultStackId == sourceItem.DefaultStackId)).ToList(); // create only items that target doesn't have it yet
             // keep old items that are still valid on target and not marked to delete so we can use them to build catalog price options for the target items
-            List<CatalogItem> targetValidOldItems = targetItems.Where(targetItem => !itemsToDelete.Any(tgtItemToDel => tgtItemToDel.DefaultStackId == targetItem.DefaultStackId)).ToList();
+            List<CatalogItem> targetCurrencies = bDeleteAndRecreate
+                ? _allOldCatalogItemsFromTarget.Where(x => x.Type == "currency").ToList() // the only valid option until now will be currencies since other items will be deleted, I hope they don't use other items to be used as price options (only currencies)
+                : targetItems.Where(targetItem => !itemsToDelete.Any(tgtItemToDel => tgtItemToDel.DefaultStackId == targetItem.DefaultStackId)).ToList();            
 
             if (_bVerbose)
             {
@@ -130,7 +136,7 @@ namespace ProductMigration.Services
                     if (item.PriceOptions != null && item.PriceOptions.Prices != null && item.PriceOptions.Prices.Count > 0)
                     {
                         bShouldCreatePriceOptions = true;
-                        CatalogPriceOptions newPriceOptions = BuildCatalogPriceOptionsFromSourceDataAndTargetIds(item.PriceOptions, _allCatalogItemsFromSource, targetValidOldItems);
+                        CatalogPriceOptions newPriceOptions = BuildCatalogPriceOptionsFromSourceDataAndTargetIds(item.PriceOptions, _allCatalogItemsFromSource, targetCurrencies);
                         item.PriceOptions = newPriceOptions;                        
                     }
 
@@ -178,6 +184,10 @@ namespace ProductMigration.Services
             }
 
             _allCatalogItemsFromTarget = await _target_catalogV2Service.SearchItems(); // cache all items here so we avoid fetching them again for bundles and stores
+            if (_bVerbose)
+            {
+                CatalogV2Service.PrintCatalogItems(_allCatalogItemsFromTarget);
+            }
 
             await CopyBundles();
 

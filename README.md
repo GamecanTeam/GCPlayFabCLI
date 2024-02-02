@@ -19,7 +19,7 @@ Params:
 This will copy catalog items, currency, bundles and stores from the provided source title to the target title.
 
 ```
-cp catalogv2 <sourceTitleId> <sourceDevSecretKey> <targetTitleId> <targetDevSecretKey> -v
+cp catalogv2 <sourceTitleId> <sourceDevSecretKey> <targetTitleId> <targetDevSecretKey> -xv -v
 ```
 
 Params:
@@ -27,6 +27,7 @@ Params:
 * sourceDevSecretKey: Secret Key of the title in which you want to copy the catalog *FROM*
 * targetTitleId: Id of the title in which you want to copy the catalog *TO*
 * targetDevSecretKey: Secret key of the title in which you want to copy the catalog *TO*
+* -xv: Optional, delete everything from target and create new (default won't delete if item ID from target matches one to be created from the source; don't update price options though)
 * -v: verbose (optional) 
 
 ## CloudScript Usage

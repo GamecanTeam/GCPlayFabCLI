@@ -103,9 +103,10 @@ namespace ProductMigrationTool
 
                     if (context == "catalogv2")
                     {
+                        bool bDeleteRecreate = commandParts.Contains("-xv");
                         CatalogV2MigrationService catalogV2MigrationService = new CatalogV2MigrationService(sourceTitleId, sourceTitleSecret, targetTitleId, targetTitleSecret, bVerbose);
                         await catalogV2MigrationService.Login();
-                        await catalogV2MigrationService.CopyCatalogV2();
+                        await catalogV2MigrationService.CopyCatalogV2(bDeleteRecreate);
                     }
                     else if (context == "functions")
                     {
