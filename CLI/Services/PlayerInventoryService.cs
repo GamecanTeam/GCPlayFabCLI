@@ -185,16 +185,16 @@ namespace CLI.Services
 
         public async Task DeleteAllInventoryItemsAsync(string collectionId)
         {
-            var allItems = await GetInventoryItemsAsync(collectionId);
+            var allItems = await GetInventoryItemsAsync(collectionId);            
 
-            if (allItems == null || allItems.Count == 0)
+            List<string> itemsIds = allItems.Where(curItem => curItem.Type == "catalogItem").Select(item => item.Id).ToList();
+
+            if (itemsIds == null || itemsIds.Count == 0)
             {
                 Console.ForegroundColor = ConsoleColor.DarkGray;
                 Console.Write($"\nThere are no items to delete for player {_titlePlayerAccountId} in collection {collectionId} for title {GetTitleId()}");
                 return;
             }
-
-            List<string> itemsIds = allItems.Where(curItem => curItem.Type == "catalogItem").Select(item => item.Id).ToList();
 
             await BatchDeleteInventoryItemsAsync(collectionId, itemsIds, false);
         }
